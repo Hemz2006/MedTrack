@@ -32,7 +32,7 @@ fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Ins
         byId[log.medicationId]?.let { TodayItem("log-${log.id}", log.id, it, log.dueAt, log.status, log.snoozedUntil, null) }
     }
     val loggedKeys = todayLogs.map { it.medicationId to it.dueAt }.toSet()
-    val handledToday = todayLogs.map { it.medicationId }.toSet()
+    val handledToday = logs.filter { it.forDate == today }.map { it.medicationId }.toSet()
 
     val upcoming = meds.filter { it.active }.flatMap { med ->
         val rule = med.schedule.rule as? ScheduleRule.AfterMeal

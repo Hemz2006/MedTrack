@@ -182,7 +182,19 @@ class ReminderEngineTest {
     @Test fun mealDoseDueNowRingsImmediately() = runBlocking {
         val id = addDaily("metformin", "21:00")
         syncAt("2026-10-13T09:00")
-        engine.addMealDose(id, at("2026-10-13T09:00"))
+        engine.addMealDose(id, at("2026-10-13T09:00"), LocalDate.parse("2026-10-13"))
         assertEquals(1, doseNotifications().size)
+    }
+
+    @Test fun pausedMedicationStopsRingingAndWaking() = runBlocking {
+        val id = addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        syncAt("2026-10-13T08:00")
+        assertEquals(1, doseNotifications().size)
+        db.medicationDao().setActive(id, false)
+        syncAt("2026-10-13T08:05")
+        assertEquals(0, doseNotifications().size)
+        assertNull(nextAlarm())
+        assertEquals(DoseStatus.PENDING, db.doseLogDao().pending().single().status)
     }
 }

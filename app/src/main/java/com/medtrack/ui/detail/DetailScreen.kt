@@ -72,6 +72,10 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
                                 try {
                                     val result = c.lookup.lookup(m.genericName, m.rxcui)
                                     c.db.medicationDao().get(id)?.let { c.medications.save(it.applyLookup(result, onlyMissing = false)) }
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MedTrack", "Refresh info failed", e)
                                 } finally {
                                     refreshing = false
                                 }

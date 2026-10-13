@@ -126,7 +126,7 @@ private fun act(c: AppContainer, item: TodayItem, status: DoseStatus) {
 
 private fun statusLabel(item: TodayItem): String = when (item.status) {
     null -> "Upcoming"
-    DoseStatus.PENDING -> item.snoozedUntil?.let { "Snoozed to ${TIME.format(it.atZone(ZoneId.systemDefault()))}" } ?: "Due now"
+    DoseStatus.PENDING -> item.snoozedUntil?.let { "Snoozed to ${TIME.format(it.atZone(ZoneId.systemDefault()))}" } ?: if (item.dueAt > java.time.Instant.now()) "Upcoming" else "Due now"
     DoseStatus.TAKEN -> "Taken"
     DoseStatus.SKIPPED -> "Skipped"
     DoseStatus.MISSED -> "Missed"

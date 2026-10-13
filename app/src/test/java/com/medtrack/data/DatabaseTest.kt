@@ -38,7 +38,7 @@ class DatabaseTest {
     @After fun tearDown() = db.close()
 
     private fun log(medId: Long, due: Instant, status: DoseStatus = DoseStatus.PENDING) =
-        DoseLogEntity(medicationId = medId, dueAt = due, status = status, trigger = DoseTrigger.SCHEDULE)
+        DoseLogEntity(medicationId = medId, dueAt = due, status = status, trigger = DoseTrigger.SCHEDULE, forDate = java.time.LocalDate.ofInstant(due, java.time.ZoneOffset.UTC))
 
     @Test fun medicationRoundTripsScheduleAndIngredients() = runBlocking {
         val id = db.medicationDao().insert(med)

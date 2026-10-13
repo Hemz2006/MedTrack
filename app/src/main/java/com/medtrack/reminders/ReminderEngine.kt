@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
@@ -46,7 +47,7 @@ class ReminderEngine(
     suspend fun recordUpcoming(medicationId: Long, dueAt: Instant, status: DoseStatus) = mutex.withLock {
         val at = now()
         val id = doseLogs.insertIgnore(
-            DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = status, trigger = DoseTrigger.SCHEDULE, actedAt = at),
+            DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = status, trigger = DoseTrigger.SCHEDULE, forDate = dueAt.atZone(clock().zone).toLocalDate(), actedAt = at),
         )
         if (id < 0) {
             // The alarm scan got there first; the user's choice must still win over the pending dose.
@@ -59,9 +60,10 @@ class ReminderEngine(
     }
 
     /** A meal was detected: add the dose (it also marks today as handled for the fallback). */
-    suspend fun addMealDose(medicationId: Long, dueAt: Instant) = mutex.withLock {
+    suspend fun addMealDose(medicationId: Long, dueAt: Instant, forDate: LocalDate) = mutex.withLock {
+        if (doseLogs.existsForDate(medicationId, forDate)) return@withLock
         val id = doseLogs.insertIgnore(
-            DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = DoseStatus.PENDING, trigger = DoseTrigger.MEAL),
+            DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = DoseStatus.PENDING, trigger = DoseTrigger.MEAL, forDate = forDate),
         )
         scan(ringNow = if (id > 0 && dueAt <= now()) listOf(id) else emptyList())
     }
@@ -81,14 +83,17 @@ class ReminderEngine(
         val zone = c.zone
         val lastScan = prefs.lastScanAt ?: now
         val meds = medications.active()
+        val activeIds = meds.map { it.id }.toSet()
+        // Paused medications stay PENDING in the DB but are silenced until resumed.
+        val pendingActive = doseLogs.pending().filter { it.medicationId in activeIds }
         val recent = doseLogs.since(minOf(lastScan, now).minus(Duration.ofDays(8)))
         val handled = recent.groupBy { it.medicationId }
-            .mapValues { (_, logs) -> logs.map { it.dueAt.atZone(zone).toLocalDate() }.toSet() }
+            .mapValues { (_, logs) -> logs.map { it.forDate }.toSet() }
 
         val plan = planScan(
             meds = meds.map { MedSchedule(it.id, it.schedule) },
             handledDates = handled,
-            pending = doseLogs.pending().map { PendingDose(it.id, it.medicationId, it.dueAt, it.snoozedUntil) },
+            pending = pendingActive.map { PendingDose(it.id, it.medicationId, it.dueAt, it.snoozedUntil) },
             lastScanAt = lastScan,
             now = now,
             zone = zone,
@@ -97,16 +102,16 @@ class ReminderEngine(
         // Whatever fails below, the next wake-up must still be booked or later doses would be lost.
         try {
             val inserted = plan.newDoses.map {
-                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.PENDING, trigger = it.trigger))
+                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.PENDING, trigger = it.trigger, forDate = it.dueAt.atZone(zone).toLocalDate()))
             }.filter { it > 0 }
             plan.missedDoses.forEach {
-                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.MISSED, trigger = it.trigger))
+                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.MISSED, trigger = it.trigger, forDate = it.dueAt.atZone(zone).toLocalDate()))
             }
             if (plan.missedLogIds.isNotEmpty()) doseLogs.markMissed(plan.missedLogIds)
             prefs.lastScanAt = now
 
-            notifier.cancelAllExcept(doseLogs.pending().map { it.id }.toSet())
-            val ring = doseLogs.byIds((inserted + plan.ringLogIds + ringNow).distinct()).filter { it.status == DoseStatus.PENDING }
+            notifier.cancelAllExcept(doseLogs.pending().filter { it.medicationId in activeIds }.map { it.id }.toSet())
+            val ring = doseLogs.byIds((inserted + plan.ringLogIds + ringNow).distinct()).filter { it.status == DoseStatus.PENDING && it.medicationId in activeIds }
             if (ring.isNotEmpty()) {
                 val medsById = medications.byIds(ring.map { it.medicationId }.distinct()).associateBy { it.id }
                 notifier.ring(

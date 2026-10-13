@@ -18,7 +18,7 @@ Install: `adb install -r app/build/outputs/apk/debug/app-debug.apk` (USB debuggi
 - [ ] Snooze: it rings again about 10 minutes later.
 - [ ] Ignore a dose for 2 hours: it shows as Missed.
 - [ ] Two medications at the same minute: both listed; "Take all" marks both.
-- [ ] Reboot the phone before a dose: it still rings.
+- [ ] Reboot the phone before a dose and unlock it: it still rings. (After a reboot, reminders resume only once the phone has been unlocked.)
 - [ ] Battery saver on, screen off for 30+ minutes: it still rings on time.
 - [ ] Change the time zone: today's times follow the new local time.
 - [ ] Every-6-hours and weekdays schedules ring on the expected days and times.

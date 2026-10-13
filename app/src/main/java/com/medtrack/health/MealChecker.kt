@@ -28,13 +28,13 @@ class MealChecker(
         val dayStart = today.atStartOfDay(zone).toInstant()
         val meals = readMeals(dayStart, now) ?: return
         val handledToday = doseLogs.since(dayStart)
-            .filter { it.dueAt.atZone(zone).toLocalDate() == today }
+            .filter { it.forDate == today }
             .map { it.medicationId }
             .toSet()
         for (med in mealMeds) {
             val handled = if (med.id in handledToday) setOf(today) else emptySet()
             val due = mealTriggeredDose(med.schedule, meals, today, zone, handled) ?: continue
-            engine.addMealDose(med.id, maxOf(due, now))
+            engine.addMealDose(med.id, maxOf(due, now), today)
         }
     }
 }

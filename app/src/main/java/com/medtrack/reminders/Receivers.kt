@@ -56,7 +56,18 @@ class DoseActionReceiver : BroadcastReceiver() {
 /** Reboot, clock or time-zone change, app update, or the exact-alarm permission changed: rebuild everything. */
 class SystemEventReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action !in HANDLED_ACTIONS) return
         val container = context.container
         runAsync { container.refreshReminders() }
+    }
+
+    private companion object {
+        val HANDLED_ACTIONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED",
+        )
     }
 }

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "2a7852ba56046474c6cc15c9f1b298e1",
+    "identityHash": "493d261768bb9ee7970ffcc1d72632de",
     "entities": [
       {
         "tableName": "medications",
@@ -110,7 +110,7 @@
       },
       {
         "tableName": "dose_logs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `medicationId` INTEGER NOT NULL, `dueAt` INTEGER NOT NULL, `status` TEXT NOT NULL, `trigger` TEXT NOT NULL, `actedAt` INTEGER, `snoozedUntil` INTEGER, FOREIGN KEY(`medicationId`) REFERENCES `medications`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `medicationId` INTEGER NOT NULL, `dueAt` INTEGER NOT NULL, `status` TEXT NOT NULL, `trigger` TEXT NOT NULL, `forDate` TEXT NOT NULL, `actedAt` INTEGER, `snoozedUntil` INTEGER, FOREIGN KEY(`medicationId`) REFERENCES `medications`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -139,6 +139,12 @@
           {
             "fieldPath": "trigger",
             "columnName": "trigger",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "forDate",
+            "columnName": "forDate",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -191,7 +197,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2a7852ba56046474c6cc15c9f1b298e1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '493d261768bb9ee7970ffcc1d72632de')"
     ]
   }
 }

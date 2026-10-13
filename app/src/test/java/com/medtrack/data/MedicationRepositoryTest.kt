@@ -30,6 +30,13 @@ class MedicationRepositoryTest {
         assertEquals(2, changes)
     }
 
+    @Test fun failingRebuildDoesNotFailSave() = runBlocking {
+        val failing = MedicationRepository(db.medicationDao(), photos) { throw IllegalStateException("boom") }
+        val id = failing.save(med)
+        assertEquals("metformin", db.medicationDao().get(id)!!.genericName)
+        assertEquals(1, db.medicationDao().active().size)
+    }
+
     @Test fun pauseNotifies() = runBlocking {
         val id = repo.save(med)
         repo.setActive(id, false)

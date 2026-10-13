@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.Instant
+import java.time.LocalDate
 
 enum class DoseStatus { PENDING, TAKEN, SKIPPED, MISSED }
 
@@ -28,6 +29,8 @@ data class DoseLogEntity(
     val dueAt: Instant,
     val status: DoseStatus,
     val trigger: DoseTrigger,
+    /** The local day this dose belongs to (a late meal dose can be due after midnight). */
+    val forDate: LocalDate,
     val actedAt: Instant? = null,
     val snoozedUntil: Instant? = null,
 )

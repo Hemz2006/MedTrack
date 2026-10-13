@@ -35,6 +35,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.medtrack.AppContainer
 import com.medtrack.health.HealthStatus
+import com.medtrack.reminders.DoseNotifier
 import com.medtrack.ui.common.ScreenScaffold
 import kotlinx.coroutines.launch
 
@@ -48,7 +49,11 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
         status = readSetupStatus(context, c.health)
         c.appScope.launch { c.refreshReminders() } // e.g. exact alarms were just allowed
     }
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        // Permanently denied: the system shows no dialog, so send the user to the settings page.
+        if (!granted) context.open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+        refresh++
+    }
     val healthPermissions = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
 
     ScreenScaffold(title = if (isSetup) "Set up reminders" else "Settings", isTab = true) { padding ->
@@ -61,7 +66,13 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
                 )
             }
             Row("Notifications", s.notifications) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (channelBlocked(context)) {
+                    context.open(
+                        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            .putExtra(Settings.EXTRA_CHANNEL_ID, DoseNotifier.CHANNEL_ID),
+                    )
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
                     context.open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
@@ -81,7 +92,7 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
                 context.open(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, context.packageUri()))
             }
             Text(
-                "On Xiaomi, Oppo, Vivo and Samsung phones, also allow MedTrack to auto-start and run in the background in the phone's battery settings.",
+                "On Xiaomi, Oppo, Vivo and Samsung phones, also allow MedTrack to auto-start and run in the background in the phone's battery settings. After the phone restarts, reminders resume once you unlock it.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(16.dp),
             )

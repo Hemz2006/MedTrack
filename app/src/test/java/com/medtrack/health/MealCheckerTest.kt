@@ -106,4 +106,30 @@ class MealCheckerTest {
         checker.check()
         assertEquals(listOf(DoseTrigger.FALLBACK), logs().map { it.trigger })
     }
+
+    @Test fun midnightCrossingDinnerDoseDoesNotCancelNextDay() = runBlocking {
+        db.medicationDao().delete(db.medicationDao().get(medId)!!)
+        val dinnerId = db.medicationDao().insert(
+            MedicationEntity(
+                genericName = "dinnerpill",
+                schedule = Schedule(ScheduleRule.AfterMeal(MealType.DINNER, 120, LocalTime.of(23, 0)), LocalDate.parse("2026-10-01")),
+                createdAt = now,
+            ),
+        )
+        now = at("2026-10-13T22:35")
+        meals = listOf(Meal(at("2026-10-13T22:30"), MealType.DINNER))
+        checker.check()
+        val first = logs().single()
+        assertEquals(at("2026-10-14T00:30"), first.dueAt)
+        assertEquals(LocalDate.parse("2026-10-13"), first.forDate)
+        // Next day: no meal logged yet, the 23:00 fallback must still be planned.
+        now = at("2026-10-14T03:00"); meals = emptyList(); engine.sync()
+        assertEquals(at("2026-10-14T23:00"), nextAlarm())
+        // Next day's dinner still produces a dose.
+        now = at("2026-10-14T20:05")
+        meals = listOf(Meal(at("2026-10-14T20:00"), MealType.DINNER))
+        checker.check()
+        assertEquals(2, logs().filter { it.medicationId == dinnerId }.size)
+        assertEquals(LocalDate.parse("2026-10-14"), logs().maxByOrNull { it.dueAt }!!.forDate)
+    }
 }
