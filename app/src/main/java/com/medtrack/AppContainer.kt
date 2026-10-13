@@ -11,6 +11,7 @@ import com.medtrack.data.PhotoStore
 import com.medtrack.health.HealthConnectGateway
 import com.medtrack.health.MealCheckScheduler
 import com.medtrack.health.MealChecker
+import com.medtrack.lookup.BrandIndex
 import com.medtrack.lookup.MedicationLookup
 import com.medtrack.lookup.urlConnectionFetch
 import com.medtrack.reminders.AlarmScheduler
@@ -31,6 +32,7 @@ class AppContainer(context: Context) {
     val prefs = AppPrefs(context)
     val photos = PhotoStore(context)
     val lookup = MedicationLookup(urlConnectionFetch)
+    val brands = BrandIndex(context)
     val engine = ReminderEngine(db.medicationDao(), db.doseLogDao(), AlarmScheduler(context), DoseNotifier(context), prefs)
     val health = HealthConnectGateway(context)
     val mealChecker = MealChecker(health::mealsBetween, db.medicationDao(), db.doseLogDao(), engine)

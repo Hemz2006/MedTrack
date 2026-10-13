@@ -1,5 +1,7 @@
 package com.medtrack.ui.detail
 
+import com.medtrack.data.subtitle
+import com.medtrack.data.title
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,7 +84,7 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
         actions = { IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") } },
     ) { padding ->
         LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            if (m.photos.isNotEmpty()) item { PhotoGallery(m.photos, m.genericName) }
+            if (m.photos.isNotEmpty()) item { PhotoGallery(m.photos, m.title) }
             item { LabelBlock(m) }
             item { MyNotesAndSchedule(m) }
             item {
@@ -94,7 +96,7 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
                         scope.launch {
                             refreshing = true
                             try {
-                                val result = c.lookup.lookup(m.genericName, m.rxcui)
+                                val result = c.lookup.lookupFor(m.genericName, m.ingredients, m.rxcui)
                                 c.db.medicationDao().get(id)?.let { c.medications.save(it.applyLookup(result, onlyMissing = false)) }
                             } catch (e: kotlinx.coroutines.CancellationException) {
                                 throw e
@@ -146,8 +148,8 @@ private fun LabelBlock(m: MedicationEntity) {
     Surface(shape = LabelShape, color = colors.paperRaised, border = BorderStroke(1.dp, colors.foil), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(m.genericName, style = MaterialTheme.typography.titleLarge)
-                listOfNotNull(m.brandName, m.doseText).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }?.let {
+                Text(m.title, style = MaterialTheme.typography.titleLarge)
+                listOfNotNull(m.subtitle, m.doseText).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }?.let {
                     Text(it, style = MaterialTheme.typography.bodyLarge, color = colors.inkMuted)
                 }
                 if (!m.active) TextTag("Paused", colors.inkMuted, Modifier.padding(top = 4.dp))

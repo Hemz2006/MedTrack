@@ -1,5 +1,7 @@
 package com.medtrack.ui.meds
 
+import com.medtrack.data.subtitle
+import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,15 +83,15 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClickLabel = "Open details", onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        PhotoThumb(med.coverPhoto, med.genericName, 56.dp, Modifier.alpha(if (med.active) 1f else 0.5f))
+        PhotoThumb(med.coverPhoto, med.title, 56.dp, Modifier.alpha(if (med.active) 1f else 0.5f))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                med.genericName,
+                med.title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = if (med.active) colors.ink else colors.inkMuted,
             )
-            listOfNotNull(med.brandName, med.doseText).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }?.let {
+            listOfNotNull(med.subtitle, med.doseText).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
             }
             Text(med.schedule.describe(), style = MaterialTheme.typography.bodyMedium, color = if (med.active) colors.ink else colors.inkMuted)

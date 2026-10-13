@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -40,6 +41,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -50,6 +52,7 @@ import com.medtrack.AppContainer
 import com.medtrack.data.Ingredient
 import com.medtrack.data.MedicationEntity
 import com.medtrack.data.SourceStatus
+import com.medtrack.lookup.Brand
 import com.medtrack.ui.common.PhotoThumb
 import com.medtrack.ui.common.ScreenScaffold
 import com.medtrack.ui.common.containerViewModel
@@ -95,10 +98,19 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
 
             Section("Medication") {
                 OutlinedTextField(
+                    value = med.brandName.orEmpty(),
+                    onValueChange = vm::onBrandChanged,
+                    label = { Text("Name on the pack (e.g. Dolo 650)") },
+                    singleLine = true,
+                    colors = fieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                state.brandSuggestions.forEach { BrandRow(it) { vm.pickBrand(it) } }
+                OutlinedTextField(
                     value = med.genericName,
                     onValueChange = vm::onNameChanged,
-                    label = { Text("Generic name (e.g. paracetamol)") },
-                    singleLine = true,
+                    label = { Text("Generic name or composition") },
+                    supportingText = { Text("Filled in when you pick a brand. Or type it, e.g. Paracetamol 650mg + Caffeine 50mg") },
                     colors = fieldColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -106,22 +118,22 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
                     TextButton(onClick = { vm.pickSuggestion(s) }) { Text(s.name) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = { vm.lookUp(onlyMissing = false) }, enabled = med.genericName.isNotBlank() && !state.lookingUp) {
-                        Text("Look up info")
-                    }
+                    OutlinedButton(
+                        onClick = { vm.lookUp(onlyMissing = false) },
+                        enabled = (med.genericName.isNotBlank() || med.ingredients.isNotEmpty()) && !state.lookingUp,
+                    ) { Text("Look up info") }
                     if (state.lookingUp) {
                         Spacer(Modifier.width(12.dp))
                         CircularProgressIndicator(Modifier.size(24.dp))
                     }
                 }
                 LookupStatus(med, state.lookingUp) { vm.lookUp(onlyMissing = true) }
-                OutlinedTextField(med.brandName.orEmpty(), { v -> vm.update { it.copy(brandName = v) } }, Modifier.fillMaxWidth(), label = { Text("Brand name (optional)") }, singleLine = true, colors = fieldColors())
-                OutlinedTextField(med.doseText.orEmpty(), { v -> vm.update { it.copy(doseText = v) } }, Modifier.fillMaxWidth(), label = { Text("Dose (e.g. 1 tablet, 40 mg)") }, singleLine = true, colors = fieldColors())
+                OutlinedTextField(med.doseText.orEmpty(), { v -> vm.update { it.copy(doseText = v) } }, Modifier.fillMaxWidth(), label = { Text("Dose (e.g. 1 tablet)") }, singleLine = true, colors = fieldColors())
             }
 
             Section("What's in it") {
                 IngredientsEditor(med.ingredients) { list -> vm.update { it.copy(ingredients = list) } }
-                if (med.rxnormStatus == SourceStatus.OK) SourceNote("Ingredients from RxNorm")
+                if (med.rxnormStatus == SourceStatus.OK) SourceNote("Checked against RxNorm")
                 if (med.pubchemStatus == SourceStatus.OK) SourceNote("Formulas from PubChem")
                 OutlinedTextField(med.usedFor.orEmpty(), { v -> vm.update { it.copy(usedFor = v) } }, Modifier.fillMaxWidth(), label = { Text("Used for") }, minLines = 2, colors = fieldColors())
                 if (med.medlineStatus == SourceStatus.OK) SourceNote("From MedlinePlus")
@@ -204,4 +216,19 @@ private fun IngredientsEditor(ingredients: List<Ingredient>, onChange: (List<Ing
         }
     }
     TextButton(onClick = { onChange(ingredients + Ingredient("")) }) { Text("Add ingredient") }
+}
+
+/** A brand suggestion: its name, then what the pack says it contains. */
+@Composable
+private fun BrandRow(brand: Brand, onClick: () -> Unit) {
+    val colors = MaterialTheme.medColors
+    Column(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(LabelShape).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(brand.name, style = MaterialTheme.typography.titleMedium, color = colors.ink)
+        Text(brand.composition, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
+        val source = if (brand.saved) "From your medications" else brand.manufacturer
+        source?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = colors.inkMuted) }
+    }
 }

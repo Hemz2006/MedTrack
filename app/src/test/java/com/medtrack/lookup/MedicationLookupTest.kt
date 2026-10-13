@@ -100,4 +100,58 @@ class MedicationLookupTest {
         val (fetch2, _) = fake("$rxnav/approximateTerm.json?term=pantaprazole&maxEntries=8" to ok(Fixtures.SUGGEST_PANTAPRAZOLE))
         assertEquals(listOf(Suggestion("40790", "pantoprazole")), MedicationLookup(fetch2).suggest("pantaprazole"))
     }
+
+    private val labelRoutes = arrayOf(
+        "$rxnav/rxcui.json?name=Paracetamol&search=2" to ok("""{"idGroup":{"rxnormId":["161"]}}"""),
+        "$rxnav/rxcui.json?name=Caffeine&search=2" to ok(Fixtures.RXCUI_NONE),
+        "$pubchem/Paracetamol/property/MolecularFormula/JSON" to ok(Fixtures.PUBCHEM_ACETAMINOPHEN),
+        "$pubchem/Caffeine/property/MolecularFormula/JSON" to HttpResponse(404, Fixtures.PUBCHEM_NOT_FOUND),
+        medline("161") to ok(Fixtures.MEDLINE_ACETAMINOPHEN),
+    )
+
+    @Test fun packIngredientsAreLookedUpOneByOne() = runBlocking {
+        val (fetch, _) = fake(*labelRoutes)
+        val label = listOf(Ingredient("Paracetamol", "650mg"), Ingredient("Caffeine", "50mg"))
+        val r = MedicationLookup(fetch).lookupIngredients(label)
+        assertEquals(listOf(Ingredient("Paracetamol", "650mg", "C8H9NO2"), Ingredient("Caffeine", "50mg")), r.ingredients)
+        assertEquals("161", r.rxcui)
+        assertEquals(listOf(OK, OK, OK), listOf(r.rxnorm, r.pubchem, r.medline))
+        assertTrue(r.fromLabel)
+    }
+
+    @Test fun nothingFoundStillKeepsThePackIngredients() = runBlocking {
+        val (fetch, _) = fake(
+            "$rxnav/rxcui.json?name=Mecobalamin&search=2" to ok(Fixtures.RXCUI_NONE),
+            "$pubchem/Mecobalamin/property/MolecularFormula/JSON" to HttpResponse(404, Fixtures.PUBCHEM_NOT_FOUND),
+        )
+        val r = MedicationLookup(fetch).lookupIngredients(listOf(Ingredient("Mecobalamin", "500mcg")))
+        assertEquals(listOf(Ingredient("Mecobalamin", "500mcg")), r.ingredients)
+        assertEquals(listOf(NOT_FOUND, NOT_FOUND, NOT_FOUND), listOf(r.rxnorm, r.pubchem, r.medline))
+    }
+
+    @Test fun bareGenericNameGoesThroughRxNorm() = runBlocking {
+        val (fetch, calls) = fake(*pantoprazoleRoutes)
+        MedicationLookup(fetch).lookupFor("pantoprazole", emptyList(), null)
+        assertTrue(calls.any { "related.json" in it })
+    }
+
+    @Test fun brandIngredientKeepsItsPackStrength() = runBlocking {
+        val (fetch, calls) = fake(*labelRoutes)
+        val r = MedicationLookup(fetch).lookupFor("Paracetamol", listOf(Ingredient("Paracetamol", "650mg")), null)
+        assertEquals("650mg", r.ingredients.single().strength)
+        assertTrue(calls.none { "related.json" in it })
+    }
+
+    @Test fun typedCompositionIsSplit() = runBlocking {
+        val (fetch, _) = fake(*labelRoutes)
+        val r = MedicationLookup(fetch).lookupFor("Paracetamol 650mg + Caffeine", emptyList(), null)
+        assertEquals(listOf("Paracetamol", "Caffeine"), r.ingredients.map { it.name })
+        assertEquals("650mg", r.ingredients.first().strength)
+    }
+
+    @Test fun brandOnlyWithNothingKnownDoesNoLookup() = runBlocking {
+        val (fetch, calls) = fake()
+        assertEquals(LookupResult(), MedicationLookup(fetch).lookupFor("", emptyList(), null))
+        assertTrue(calls.isEmpty())
+    }
 }
