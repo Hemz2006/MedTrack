@@ -1,0 +1,92 @@
+package com.medtrack.ui
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.medtrack.AppContainer
+import com.medtrack.ui.meds.MedicationsScreen
+
+object Routes {
+    const val TODAY = "today"
+    const val MEDS = "meds"
+    const val SETTINGS = "settings"
+    const val EDIT = "edit/{id}"
+    const val DETAIL = "detail/{id}"
+    fun edit(id: Long) = "edit/$id"
+    fun detail(id: Long) = "detail/$id"
+}
+
+private data class Tab(val route: String, val label: String, val icon: ImageVector)
+
+private val tabs = listOf(
+    Tab(Routes.TODAY, "Today", Icons.Default.Home),
+    Tab(Routes.MEDS, "Medications", Icons.AutoMirrored.Filled.List),
+    Tab(Routes.SETTINGS, "Settings", Icons.Default.Settings),
+)
+
+@Composable
+fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
+    val nav = rememberNavController()
+    val backStack by nav.currentBackStackEntryAsState()
+    val route = backStack?.destination?.route
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            if (tabs.any { it.route == route }) {
+                NavigationBar {
+                    tabs.forEach { tab ->
+                        NavigationBarItem(
+                            selected = route == tab.route,
+                            onClick = {
+                                nav.navigate(tab.route) {
+                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = { Icon(tab.icon, null) },
+                            label = { Text(tab.label) },
+                        )
+                    }
+                }
+            }
+        },
+    ) { padding ->
+        NavHost(nav, startDestination = if (startOnSetup) Routes.SETTINGS else Routes.TODAY, modifier = Modifier.padding(padding)) {
+            composable(Routes.TODAY) { Placeholder("Today") }
+            composable(Routes.MEDS) {
+                MedicationsScreen(c, onAdd = { nav.navigate(Routes.edit(0)) }, onOpen = { nav.navigate(Routes.detail(it)) })
+            }
+            composable(Routes.SETTINGS) { Placeholder("Settings") }
+            composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { Placeholder("Edit") }
+            composable(Routes.DETAIL, arguments = listOf(navArgument("id") { type = NavType.LongType })) { Placeholder("Detail") }
+        }
+    }
+}
+
+@Composable
+private fun Placeholder(name: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("$name — coming soon") }
+}
