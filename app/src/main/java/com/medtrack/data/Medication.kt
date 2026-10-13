@@ -21,6 +21,8 @@ data class MedicationEntity(
     val genericName: String,
     val brandName: String? = null,
     val doseText: String? = null,
+    /** Null for medications saved before forms existed, or when the user hasn't said. */
+    val form: MedForm? = null,
     val notes: String? = null,
     val ingredients: List<Ingredient> = emptyList(),
     val usedFor: String? = null,
@@ -44,6 +46,10 @@ val MedicationEntity.title: String
 /** The generic name when [title] is the brand; null when there is nothing more to say. */
 val MedicationEntity.subtitle: String?
     get() = genericName.takeIf { it.isNotBlank() && title != genericName }
+
+/** "Inhaler · 2 puffs": how it's taken, for lists, Today and alarms; null when neither is known. */
+val MedicationEntity.doseLine: String?
+    get() = listOfNotNull(form?.label, doseText?.takeIf { it.isNotBlank() }).joinToString(" · ").ifEmpty { null }
 
 fun MedicationEntity.displayName(): String = subtitle?.let { "$title ($it)" } ?: title
 

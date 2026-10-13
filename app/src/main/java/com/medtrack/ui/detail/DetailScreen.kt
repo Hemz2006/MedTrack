@@ -1,5 +1,6 @@
 package com.medtrack.ui.detail
 
+import com.medtrack.data.doseLine
 import com.medtrack.data.subtitle
 import com.medtrack.data.title
 import androidx.compose.foundation.BorderStroke
@@ -149,7 +150,7 @@ private fun LabelBlock(m: MedicationEntity) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(m.title, style = MaterialTheme.typography.titleLarge)
-                listOfNotNull(m.subtitle, m.doseText).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }?.let {
+                listOfNotNull(m.subtitle, m.doseLine).joinToString(" · ").ifEmpty { null }?.let {
                     Text(it, style = MaterialTheme.typography.bodyLarge, color = colors.inkMuted)
                 }
                 if (!m.active) TextTag("Paused", colors.inkMuted, Modifier.padding(top = 4.dp))

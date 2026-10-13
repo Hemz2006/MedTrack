@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import com.medtrack.data.doseLine
 import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -116,7 +117,7 @@ private fun detailLine(item: TodayItem, zone: ZoneId): String? {
         if (it.length > 40) it.take(39).trimEnd() + "…" else it
     }
     val snoozed = item.snoozedUntil?.takeIf { item.status == DoseStatus.PENDING }?.let { "Snoozed to ${TIME.format(it.atZone(zone))}" }
-    return listOfNotNull(med.doseText?.takeIf { it.isNotBlank() }, note, snoozed).joinToString(" · ").ifEmpty { null }
+    return listOfNotNull(med.doseLine, note, snoozed).joinToString(" · ").ifEmpty { null }
 }
 
 @Composable

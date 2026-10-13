@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.medtrack.AppContainer
 import com.medtrack.data.MedicationEntity
+import com.medtrack.data.guessForm
 import com.medtrack.data.newMedication
 import com.medtrack.lookup.Brand
 import com.medtrack.lookup.Suggestion
@@ -108,6 +109,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
                 suggestions = emptyList(),
                 med = it.med.copy(
                     brandName = brand.name,
+                    form = guessForm(brand.name) ?: it.med.form,
                     genericName = ingredients.joinToString(" + ") { i -> i.name },
                     ingredients = ingredients,
                     rxcui = null,

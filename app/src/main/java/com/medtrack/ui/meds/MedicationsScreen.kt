@@ -1,5 +1,6 @@
 package com.medtrack.ui.meds
 
+import com.medtrack.data.doseLine
 import com.medtrack.data.subtitle
 import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
@@ -91,7 +92,7 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = if (med.active) colors.ink else colors.inkMuted,
             )
-            listOfNotNull(med.subtitle, med.doseText).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }?.let {
+            listOfNotNull(med.subtitle, med.doseLine).joinToString(" · ").ifEmpty { null }?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
             }
             Text(med.schedule.describe(), style = MaterialTheme.typography.bodyMedium, color = if (med.active) colors.ink else colors.inkMuted)

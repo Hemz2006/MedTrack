@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import com.medtrack.data.doseLine
 import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +56,7 @@ fun DoseSheet(
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(med.displayName(), style = MaterialTheme.typography.titleLarge)
-                    med.doseText?.takeIf { it.isNotBlank() }?.let {
+                    med.doseLine?.let {
                         Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.medColors.inkMuted)
                     }
                     val time = TIME.format(item.dueAt.atZone(zone))
