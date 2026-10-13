@@ -16,7 +16,12 @@ fun mealName(meal: MealType): String = when (meal) {
 }
 
 fun Schedule.describe(): String {
-    val base = when (val r = rule) {
+    val base = rules.joinToString("; ") { it.describe() }
+    return if (endDate != null) "$base, until ${endDate.format(DAY_MONTH)}" else base
+}
+
+fun ScheduleRule.describe(): String =
+    when (val r = this) {
         is ScheduleRule.DailyTimes -> "Daily at ${r.times.sorted().joinToString(", ") { it.format(HM) }}"
         is ScheduleRule.Weekdays -> {
             val days = DayOfWeek.values().filter { it in r.days }
@@ -29,5 +34,3 @@ fun Schedule.describe(): String {
             "$delay after ${mealName(r.meal)} (by ${r.fallbackTime.format(HM)})"
         }
     }
-    return if (endDate != null) "$base, until ${endDate.format(DAY_MONTH)}" else base
-}

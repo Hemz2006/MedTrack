@@ -1,5 +1,6 @@
 package com.medtrack.ui.meds
 
+import com.medtrack.data.coverPhoto
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -80,7 +81,7 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClickLabel = "Open details", onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        PhotoThumb(med.photoPath, med.genericName, 56.dp, Modifier.alpha(if (med.active) 1f else 0.5f))
+        PhotoThumb(med.coverPhoto, med.genericName, 56.dp, Modifier.alpha(if (med.active) 1f else 0.5f))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(

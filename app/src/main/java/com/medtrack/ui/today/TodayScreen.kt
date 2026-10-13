@@ -56,7 +56,7 @@ import com.medtrack.data.DoseStatus
 import com.medtrack.data.displayName
 import com.medtrack.health.HealthStatus
 import com.medtrack.reminders.UndoTarget
-import com.medtrack.schedule.ScheduleRule
+import com.medtrack.schedule.hasMealRule
 import com.medtrack.ui.common.containerViewModel
 import com.medtrack.ui.settings.readSetupStatus
 import com.medtrack.ui.theme.LabelShape
@@ -110,7 +110,7 @@ fun TodayScreen(
     var warnings by remember { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(resumes) {
         val status = readSetupStatus(context, c.health)
-        val hasMealMeds = c.db.medicationDao().active().any { it.schedule.rule is ScheduleRule.AfterMeal }
+        val hasMealMeds = c.db.medicationDao().active().any { it.schedule.hasMealRule }
         warnings = buildList {
             if (!status.notifications || !status.exactAlarms) add("Reminders may not ring. Tap to finish setup in Settings.")
             if (hasMealMeds && status.health != HealthStatus.CONNECTED) {
@@ -233,7 +233,7 @@ private fun EmptyToday(hasMedications: Boolean, onAddMedication: () -> Unit) {
 
 /** Takes or skips a dose; returns what undo needs, or null when nothing changed. */
 private suspend fun act(c: AppContainer, item: TodayItem, status: DoseStatus): UndoTarget? {
-    val logId = item.logId ?: return c.engine.recordUpcoming(item.medication.id, item.dueAt, status)
+    val logId = item.logId ?: return c.engine.recordUpcoming(item.medication.id, item.dueAt, status, item.slot)
     val previous = item.status ?: return null
     if (previous == status) return null
     if (status == DoseStatus.TAKEN) c.engine.markTaken(logId) else c.engine.markSkipped(logId)

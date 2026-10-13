@@ -49,7 +49,7 @@ import com.medtrack.data.displayName
 import com.medtrack.lookup.applyLookup
 import com.medtrack.schedule.describe
 import com.medtrack.ui.common.Capsule
-import com.medtrack.ui.common.PhotoHeader
+import com.medtrack.ui.common.PhotoGallery
 import com.medtrack.ui.common.ScreenScaffold
 import com.medtrack.ui.common.TIME
 import com.medtrack.ui.common.TextTag
@@ -82,7 +82,7 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
         actions = { IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") } },
     ) { padding ->
         LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            if (m.photoPath != null) item { PhotoHeader(m.photoPath, m.genericName) }
+            if (m.photos.isNotEmpty()) item { PhotoGallery(m.photos, m.genericName) }
             item { LabelBlock(m) }
             item { MyNotesAndSchedule(m) }
             item {

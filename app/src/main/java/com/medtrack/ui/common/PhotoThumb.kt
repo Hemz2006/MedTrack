@@ -2,7 +2,11 @@ package com.medtrack.ui.common
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -21,6 +25,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.medtrack.data.PhotoStore
 import com.medtrack.ui.theme.LabelShape
@@ -37,6 +42,21 @@ fun PhotoThumb(path: String?, name: String, size: Dp, modifier: Modifier = Modif
 @Composable
 fun PhotoHeader(path: String?, name: String, modifier: Modifier = Modifier) =
     PhotoBox(path, name, modifier.fillMaxWidth().aspectRatio(16f / 10f), 64.sp)
+
+/** Several photos as a swipeable header, with "2 of 3" beneath when there's more than one. */
+@Composable
+fun PhotoGallery(paths: List<String>, name: String, modifier: Modifier = Modifier) {
+    if (paths.size == 1) return PhotoHeader(paths.first(), name, modifier)
+    val pager = rememberPagerState { paths.size }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalPager(pager, pageSpacing = 12.dp) { page -> PhotoHeader(paths[page], "$name, photo ${page + 1} of ${paths.size}") }
+        Text(
+            "Photo ${pager.currentPage + 1} of ${paths.size}, swipe for more",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.medColors.inkMuted,
+        )
+    }
+}
 
 @Composable
 private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: TextUnit) {

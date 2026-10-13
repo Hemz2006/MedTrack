@@ -37,8 +37,8 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
     private val _state = MutableStateFlow(EditState(med = newMedication(LocalDate.now(), Instant.now())))
     val state = _state.asStateFlow()
 
-    /** The photo stored in the database; a new photo replaces it only on save. */
-    private var savedPhoto: String? = null
+    /** The photos stored in the database; files of removed ones are deleted only on save. */
+    private var savedPhotos: List<String> = emptyList()
     private var suggestJob: Job? = null
     private var lookupJob: Job? = null
 
@@ -48,7 +48,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         } else {
             viewModelScope.launch {
                 val existing = c.db.medicationDao().get(id)
-                savedPhoto = existing?.photoPath
+                savedPhotos = existing?.photos.orEmpty()
                 _state.update { s -> if (existing == null) s.copy(loaded = true) else s.copy(med = existing, loaded = true) }
             }
         }
@@ -108,25 +108,31 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         job.start()
     }
 
-    fun setPhoto(uri: Uri) {
+    fun addPhotos(uris: List<Uri>) {
         viewModelScope.launch {
-            val path = try {
-                c.photos.importFrom(uri)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.update { it.copy(error = "Couldn't load that photo") }
-                return@launch
+            var failed = 0
+            for (uri in uris) {
+                val path = try {
+                    c.photos.importFrom(uri)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failed++
+                    continue
+                }
+                update { it.copy(photos = it.photos + path) }
             }
-            discardUnsavedPhoto()
-            update { it.copy(photoPath = path) }
+            if (failed > 0) _state.update { it.copy(error = if (failed == 1) "Couldn't load one photo" else "Couldn't load $failed photos") }
         }
     }
 
-    fun removePhoto() {
-        discardUnsavedPhoto()
-        update { it.copy(photoPath = null) }
+    fun removePhoto(path: String) {
+        if (path !in savedPhotos) c.photos.delete(path)
+        update { it.copy(photos = it.photos - path) }
     }
+
+    /** Moves [path] to the front, so it is shown in lists, notifications and alarms. */
+    fun makeMainPhoto(path: String) = update { it.copy(photos = listOf(path) + (it.photos - path)) }
 
     fun save() {
         val current = _state.value
@@ -150,8 +156,8 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
                             notes = med.notes?.trim()?.ifEmpty { null },
                         ),
                     )
-                    if (savedPhoto != med.photoPath) c.photos.delete(savedPhoto)
-                    savedPhoto = med.photoPath
+                    (savedPhotos - med.photos.toSet()).forEach(c.photos::delete)
+                    savedPhotos = med.photos
                     _state.update { it.copy(saving = false, saved = true) }
                 }
             } catch (e: CancellationException) {
@@ -162,12 +168,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         }
     }
 
-    private fun discardUnsavedPhoto() {
-        val current = _state.value.med.photoPath
-        if (current != savedPhoto) c.photos.delete(current)
-    }
-
     override fun onCleared() {
-        if (!_state.value.saved && !_state.value.saving) discardUnsavedPhoto()
+        if (!_state.value.saved && !_state.value.saving) (_state.value.med.photos - savedPhotos.toSet()).forEach(c.photos::delete)
     }
 }

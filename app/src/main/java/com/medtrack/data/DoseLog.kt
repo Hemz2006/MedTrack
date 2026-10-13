@@ -33,4 +33,6 @@ data class DoseLogEntity(
     val forDate: LocalDate,
     val actedAt: Instant? = null,
     val snoozedUntil: Instant? = null,
+    /** [com.medtrack.schedule.slot] of the after-meal rule this dose belongs to; null for clock-time doses. */
+    val slot: String? = null,
 )

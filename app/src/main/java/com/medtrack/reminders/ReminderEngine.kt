@@ -6,6 +6,7 @@ import com.medtrack.data.DoseLogEntity
 import com.medtrack.data.DoseStatus
 import com.medtrack.data.DoseTrigger
 import com.medtrack.data.MedicationDao
+import com.medtrack.data.coverPhoto
 import com.medtrack.data.displayName
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -50,10 +51,13 @@ class ReminderEngine(
      * Taken/skipped from the Today screen before the dose rang; stops it ringing later.
      * Returns what [undo] needs to reverse it, or null when nothing changed (the dose was already handled).
      */
-    suspend fun recordUpcoming(medicationId: Long, dueAt: Instant, status: DoseStatus): UndoTarget? = mutex.withLock {
+    suspend fun recordUpcoming(medicationId: Long, dueAt: Instant, status: DoseStatus, slot: String?): UndoTarget? = mutex.withLock {
         val at = now()
         val id = doseLogs.insertIgnore(
-            DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = status, trigger = DoseTrigger.SCHEDULE, forDate = dueAt.atZone(clock().zone).toLocalDate(), actedAt = at),
+            DoseLogEntity(
+                medicationId = medicationId, dueAt = dueAt, status = status, trigger = DoseTrigger.SCHEDULE,
+                forDate = dueAt.atZone(clock().zone).toLocalDate(), actedAt = at, slot = slot,
+            ),
         )
         val target = if (id > 0) {
             UndoTarget(id, null)
@@ -86,11 +90,11 @@ class ReminderEngine(
         scan()
     }
 
-    /** A meal was detected: add the dose (it also marks today as handled for the fallback). */
-    suspend fun addMealDose(medicationId: Long, dueAt: Instant, forDate: LocalDate) = mutex.withLock {
-        if (doseLogs.existsForDate(medicationId, forDate)) return@withLock
+    /** A meal was detected: add the dose for the after-meal rule [slot] (it also marks the day handled for that rule's fallback). */
+    suspend fun addMealDose(medicationId: Long, slot: String, dueAt: Instant, forDate: LocalDate) = mutex.withLock {
+        if (doseLogs.existsForSlot(medicationId, slot, forDate)) return@withLock
         val id = doseLogs.insertIgnore(
-            DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = DoseStatus.PENDING, trigger = DoseTrigger.MEAL, forDate = forDate),
+            DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = DoseStatus.PENDING, trigger = DoseTrigger.MEAL, forDate = forDate, slot = slot),
         )
         scan(ringNow = if (id > 0 && dueAt <= now()) listOf(id) else emptyList())
     }
@@ -114,8 +118,9 @@ class ReminderEngine(
         // Paused medications stay PENDING in the DB but are silenced until resumed.
         val pendingActive = doseLogs.pending().filter { it.medicationId in activeIds }
         val recent = doseLogs.since(minOf(lastScan, now).minus(Duration.ofDays(8)))
-        val handled = recent.groupBy { it.medicationId }
-            .mapValues { (_, logs) -> logs.map { it.forDate }.toSet() }
+        val handled = recent.mapNotNull { log -> log.slot?.let { (log.medicationId to it) to log.forDate } }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, dates) -> dates.toSet() }
 
         val plan = planScan(
             meds = meds.map { MedSchedule(it.id, it.schedule) },
@@ -129,10 +134,10 @@ class ReminderEngine(
         // Whatever fails below, the next wake-up must still be booked or later doses would be lost.
         try {
             val inserted = plan.newDoses.map {
-                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.PENDING, trigger = it.trigger, forDate = it.dueAt.atZone(zone).toLocalDate()))
+                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.PENDING, trigger = it.trigger, forDate = it.dueAt.atZone(zone).toLocalDate(), slot = it.slot))
             }.filter { it > 0 }
             plan.missedDoses.forEach {
-                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.MISSED, trigger = it.trigger, forDate = it.dueAt.atZone(zone).toLocalDate()))
+                doseLogs.insertIgnore(DoseLogEntity(medicationId = it.medicationId, dueAt = it.dueAt, status = DoseStatus.MISSED, trigger = it.trigger, forDate = it.dueAt.atZone(zone).toLocalDate(), slot = it.slot))
             }
             if (plan.missedLogIds.isNotEmpty()) doseLogs.markMissed(plan.missedLogIds)
             prefs.lastScanAt = now
@@ -144,7 +149,7 @@ class ReminderEngine(
                 notifier.ring(
                     ring.sortedBy { it.dueAt }.mapNotNull { log ->
                         medsById[log.medicationId]?.let { med ->
-                            RingItem(log.id, med.displayName(), listOfNotNull(med.doseText, med.notes).filter { it.isNotBlank() }.joinToString(" · "), med.photoPath)
+                            RingItem(log.id, med.displayName(), listOfNotNull(med.doseText, med.notes).filter { it.isNotBlank() }.joinToString(" · "), med.coverPhoto)
                         }
                     },
                 )

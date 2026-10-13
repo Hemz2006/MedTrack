@@ -6,6 +6,7 @@ import com.medtrack.data.MedicationEntity
 import com.medtrack.schedule.ScheduleRule
 import com.medtrack.schedule.dosesBetween
 import com.medtrack.schedule.mealName
+import com.medtrack.schedule.slot
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -21,6 +22,8 @@ data class TodayItem(
     val mealHint: String?,
     /** When it was taken or skipped, if recorded. */
     val actedAt: Instant? = null,
+    /** The after-meal rule this dose belongs to, for recording it before it rings. */
+    val slot: String? = null,
 )
 
 /** Today's recorded doses plus the doses still to come, in time order. */
@@ -35,16 +38,17 @@ fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Ins
         byId[log.medicationId]?.let { TodayItem("log-${log.id}", log.id, it, log.dueAt, log.status, log.snoozedUntil, null, log.actedAt) }
     }
     val loggedKeys = todayLogs.map { it.medicationId to it.dueAt }.toSet()
-    val handledToday = logs.filter { it.forDate == today }.map { it.medicationId }.toSet()
+    val handledToday = logs.filter { it.forDate == today && it.slot != null }.map { it.medicationId to it.slot }.toSet()
 
     val upcoming = meds.filter { it.active }.flatMap { med ->
-        val rule = med.schedule.rule as? ScheduleRule.AfterMeal
-        val skip = if (rule != null && med.id in handledToday) setOf(today) else emptySet()
-        dosesBetween(med.schedule, now, dayEnd.minusMillis(1), zone, skip)
-            .filter { (med.id to it) !in loggedKeys }
-            .map { due ->
-                TodayItem("up-${med.id}-${due.toEpochMilli()}", null, med, due, null, null, rule?.let { "After ${mealName(it.meal)}" })
-            }
+        med.schedule.rules.flatMap { rule ->
+            val slot = rule.slot
+            val skip = if (slot != null && (med.id to slot) in handledToday) setOf(today) else emptySet()
+            val mealHint = (rule as? ScheduleRule.AfterMeal)?.let { "After ${mealName(it.meal)}" }
+            dosesBetween(med.schedule, rule, now, dayEnd.minusMillis(1), zone, skip)
+                .filter { (med.id to it) !in loggedKeys }
+                .map { due -> TodayItem("up-${med.id}-${due.toEpochMilli()}", null, med, due, null, null, mealHint, slot = slot) }
+        }.distinctBy { it.key } // two rules landing on the same minute are one dose
     }
     return (recorded + upcoming).sortedBy { it.dueAt }
 }

@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import com.medtrack.data.coverPhoto
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -82,7 +83,7 @@ fun DoseRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PhotoThumb(item.medication.photoPath, item.medication.genericName, 48.dp)
+        PhotoThumb(item.medication.coverPhoto, item.medication.genericName, 48.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(item.medication.displayName(), style = MaterialTheme.typography.titleMedium)

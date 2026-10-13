@@ -5,6 +5,7 @@ import com.medtrack.schedule.Schedule
 import com.medtrack.schedule.ScheduleRule
 import com.medtrack.schedule.dosesBetween
 import com.medtrack.schedule.nextDose
+import com.medtrack.schedule.slot
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -16,7 +17,10 @@ private val MAX_BACKFILL: Duration = Duration.ofDays(7)
 
 data class MedSchedule(val medicationId: Long, val schedule: Schedule)
 data class PendingDose(val logId: Long, val medicationId: Long, val dueAt: Instant, val snoozedUntil: Instant?)
-data class NewDose(val medicationId: Long, val dueAt: Instant, val trigger: DoseTrigger)
+data class NewDose(val medicationId: Long, val dueAt: Instant, val trigger: DoseTrigger, val slot: String? = null)
+
+/** An after-meal rule's doses: (medication id, [com.medtrack.schedule.slot]). */
+typealias SlotKey = Pair<Long, String>
 
 data class ScanPlan(
     /** Insert as PENDING and ring. */
@@ -31,10 +35,13 @@ data class ScanPlan(
     val nextWake: Instant?,
 )
 
-/** Decides what a wake-up at [now] must record, ring and schedule, given the previous wake-up at [lastScanAt]. */
+/**
+ * Decides what a wake-up at [now] must record, ring and schedule, given the previous wake-up at [lastScanAt].
+ * [handledDates] lists, per after-meal rule, the days that already have a dose, so no fallback is added for them.
+ */
 fun planScan(
     meds: List<MedSchedule>,
-    handledDates: Map<Long, Set<LocalDate>>,
+    handledDates: Map<SlotKey, Set<LocalDate>>,
     pending: List<PendingDose>,
     lastScanAt: Instant,
     now: Instant,
@@ -46,18 +53,18 @@ fun planScan(
     val missedDoses = mutableListOf<NewDose>()
     val wakes = mutableListOf<Instant>()
 
-    for (med in meds) {
-        val isMeal = med.schedule.rule is ScheduleRule.AfterMeal
-        val skip = if (isMeal) handledDates[med.medicationId].orEmpty() else emptySet()
-        val trigger = if (isMeal) DoseTrigger.FALLBACK else DoseTrigger.SCHEDULE
-        for (due in dosesBetween(med.schedule, from, now, zone, skip)) {
-            val dose = NewDose(med.medicationId, due, trigger)
+    for (med in meds) for (rule in med.schedule.rules) {
+        val slot = rule.slot
+        val skip = slot?.let { handledDates[med.medicationId to it] }.orEmpty()
+        val trigger = if (rule is ScheduleRule.AfterMeal) DoseTrigger.FALLBACK else DoseTrigger.SCHEDULE
+        for (due in dosesBetween(med.schedule, rule, from, now, zone, skip)) {
+            val dose = NewDose(med.medicationId, due, trigger, slot)
             if (due <= missedCutoff) missedDoses += dose else {
                 newDoses += dose
                 wakes += due.plus(MISSED_AFTER)
             }
         }
-        nextDose(med.schedule, now, zone, skip)?.let { wakes += it }
+        nextDose(med.schedule, rule, now, zone, skip)?.let { wakes += it }
     }
 
     val missedLogIds = mutableListOf<Long>()

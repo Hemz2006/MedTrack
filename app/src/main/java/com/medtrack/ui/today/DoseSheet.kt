@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import com.medtrack.data.coverPhoto
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -49,7 +50,7 @@ fun DoseSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row {
-                PhotoThumb(med.photoPath, med.genericName, 96.dp)
+                PhotoThumb(med.coverPhoto, med.genericName, 96.dp)
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(med.displayName(), style = MaterialTheme.typography.titleLarge)

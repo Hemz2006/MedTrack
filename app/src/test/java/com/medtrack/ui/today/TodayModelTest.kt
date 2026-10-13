@@ -38,14 +38,29 @@ class TodayModelTest {
         val before = buildToday(listOf(meal), emptyList(), at("2026-10-13T07:00"), zone).single()
         assertEquals(at("2026-10-13T10:00"), before.dueAt)
         assertEquals("After breakfast", before.mealHint)
-        val logs = listOf(DoseLogEntity(9, 2, at("2026-10-13T08:40"), DoseStatus.PENDING, DoseTrigger.MEAL, LocalDate.parse("2026-10-13")))
+        val logs = listOf(DoseLogEntity(9, 2, at("2026-10-13T08:40"), DoseStatus.PENDING, DoseTrigger.MEAL, LocalDate.parse("2026-10-13"), slot = "meal:BREAKFAST"))
         val after = buildToday(listOf(meal), logs, at("2026-10-13T08:00"), zone)
         assertEquals(listOf(at("2026-10-13T08:40")), after.map { it.dueAt })
     }
 
+    @Test fun breakfastAndDinnerAreSeparateDoses() {
+        val rules = listOf(
+            ScheduleRule.AfterMeal(MealType.BREAKFAST, 0, LocalTime.of(10, 0)),
+            ScheduleRule.AfterMeal(MealType.DINNER, 0, LocalTime.of(22, 0)),
+        )
+        val twice = meal.copy(schedule = Schedule(rules, start))
+        val before = buildToday(listOf(twice), emptyList(), at("2026-10-13T07:00"), zone)
+        assertEquals(listOf("After breakfast", "After dinner"), before.map { it.mealHint })
+        assertEquals(listOf("meal:BREAKFAST", "meal:DINNER"), before.map { it.slot })
+        // Breakfast taken: dinner is still to come.
+        val logs = listOf(DoseLogEntity(9, 2, at("2026-10-13T08:40"), DoseStatus.TAKEN, DoseTrigger.MEAL, LocalDate.parse("2026-10-13"), slot = "meal:BREAKFAST"))
+        val after = buildToday(listOf(twice), logs, at("2026-10-13T09:00"), zone)
+        assertEquals(listOf(at("2026-10-13T08:40"), at("2026-10-13T22:00")), after.map { it.dueAt })
+    }
+
     @Test fun lateMealDoseDueAfterMidnightDoesNotHandleNextDay() {
         val dinner = MedicationEntity(3, "x", schedule = Schedule(ScheduleRule.AfterMeal(MealType.DINNER, 120, LocalTime.of(23, 0)), start), createdAt = Instant.EPOCH)
-        val logs = listOf(DoseLogEntity(9, 3, at("2026-10-14T00:30"), DoseStatus.PENDING, DoseTrigger.MEAL, LocalDate.parse("2026-10-13")))
+        val logs = listOf(DoseLogEntity(9, 3, at("2026-10-14T00:30"), DoseStatus.PENDING, DoseTrigger.MEAL, LocalDate.parse("2026-10-13"), slot = "meal:DINNER"))
         val items = buildToday(listOf(dinner), logs, at("2026-10-14T07:00"), zone)
         assertEquals(listOf(at("2026-10-14T00:30"), at("2026-10-14T23:00")), items.map { it.dueAt })
         assertEquals("After dinner", items.last().mealHint)

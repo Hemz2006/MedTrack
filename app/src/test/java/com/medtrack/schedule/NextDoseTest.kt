@@ -90,6 +90,15 @@ class NextDoseTest {
         assertEquals(at("2026-10-14T10:00"), nextDose(s, at("2026-10-13T09:00"), ist, setOf(LocalDate.parse("2026-10-13"))))
     }
 
+    @Test fun severalRulesMergeInTimeOrder() {
+        val s = Schedule(
+            listOf(ScheduleRule.AfterMeal(MealType.DINNER, 0, LocalTime.of(22, 0)), ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(22, 0)))),
+            LocalDate.parse("2026-10-01"),
+        )
+        assertEquals(at("2026-10-13T22:00"), nextDose(s, at("2026-10-13T09:00"), ist))
+        assertEquals(listOf(at("2026-10-13T08:00"), at("2026-10-13T22:00")), dosesBetween(s, at("2026-10-13T00:00"), at("2026-10-13T23:00"), ist))
+    }
+
     @Test fun dosesBetweenIsExclusiveStartInclusiveEnd() {
         assertEquals(
             listOf(at("2026-10-13T08:00"), at("2026-10-13T21:00"), at("2026-10-14T08:00")),

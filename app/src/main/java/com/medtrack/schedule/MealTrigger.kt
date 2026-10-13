@@ -9,18 +9,18 @@ import java.time.ZoneId
 data class Meal(val time: Instant, val type: MealType?)
 
 /**
- * When an after-meal dose should ring today: the earliest matching meal today plus the delay.
- * Null when today already has a dose ([handledDates]), the course isn't running today,
- * no meal matches, or the schedule isn't after-meal.
+ * When [rule]'s dose should ring today: the earliest matching meal today plus the delay.
+ * Null when today already has a dose for the rule ([handledDates]), the course isn't running today,
+ * or no meal matches.
  */
 fun mealTriggeredDose(
     schedule: Schedule,
+    rule: ScheduleRule.AfterMeal,
     meals: List<Meal>,
     today: LocalDate,
     zone: ZoneId,
     handledDates: Set<LocalDate>,
 ): Instant? {
-    val rule = schedule.rule as? ScheduleRule.AfterMeal ?: return null
     if (today in handledDates) return null
     if (today < schedule.startDate || (schedule.endDate != null && today > schedule.endDate)) return null
     val meal = meals

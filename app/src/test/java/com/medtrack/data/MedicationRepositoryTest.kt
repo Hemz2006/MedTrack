@@ -44,12 +44,14 @@ class MedicationRepositoryTest {
         assertEquals(2, changes)
     }
 
-    @Test fun deleteRemovesRowAndPhoto() = runBlocking {
+    @Test fun deleteRemovesRowAndPhotos() = runBlocking {
         val photo = File(photos.photosDir, "p.jpg").apply { writeText("x") }
-        val id = repo.save(med.copy(photoPath = photo.absolutePath))
+        val second = File(photos.photosDir, "q.jpg").apply { writeText("y") }
+        val id = repo.save(med.copy(photos = listOf(photo.absolutePath, second.absolutePath)))
         repo.delete(id)
         assertNull(db.medicationDao().get(id))
         assertFalse(photo.exists())
+        assertFalse(second.exists())
         assertEquals(2, changes)
     }
 }

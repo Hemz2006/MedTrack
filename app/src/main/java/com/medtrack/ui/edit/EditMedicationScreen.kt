@@ -67,10 +67,10 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
     val context = LocalContext.current
     var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        if (ok) cameraUri?.let(vm::setPhoto)
+        if (ok) cameraUri?.let { vm.addPhotos(listOf(it)) }
     }
-    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let(vm::setPhoto)
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+        vm.addPhotos(uris)
     }
     fun launchCamera() {
         val file = File(File(context.cacheDir, "camera").apply { mkdirs() }, "capture.jpg")
@@ -130,15 +130,14 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
 
             Section("How you take it") {
                 OutlinedTextField(med.notes.orEmpty(), { v -> vm.update { it.copy(notes = v) } }, Modifier.fillMaxWidth(), label = { Text("My notes (how I take it)") }, minLines = 2, colors = fieldColors())
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PhotoThumb(med.photoPath, med.genericName.ifBlank { "?" }, 72.dp)
-                    Spacer(Modifier.width(12.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = ::launchCamera) { Text("Camera") }
-                        OutlinedButton(onClick = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Gallery") }
-                        if (med.photoPath != null) TextButton(onClick = vm::removePhoto) { Text("Remove") }
-                    }
-                }
+                PhotosEditor(
+                    photos = med.photos,
+                    name = med.genericName.ifBlank { "Medication" },
+                    onCamera = ::launchCamera,
+                    onGallery = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    onRemove = vm::removePhoto,
+                    onMakeMain = vm::makeMainPhoto,
+                )
             }
 
             Section("Schedule") {

@@ -23,7 +23,7 @@ class MedicationRepository(
     suspend fun delete(id: Long) {
         val medication = dao.get(id) ?: return
         dao.delete(medication)
-        photos.delete(medication.photoPath)
+        medication.photos.forEach(photos::delete)
         notifyChanged()
     }
 

@@ -1,11 +1,18 @@
 package com.medtrack.ui.edit
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,6 +20,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -25,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.medtrack.schedule.MealType
@@ -33,8 +43,15 @@ import com.medtrack.schedule.ScheduleKind
 import com.medtrack.schedule.ScheduleRule
 import com.medtrack.schedule.kind
 import com.medtrack.schedule.mealName
+import com.medtrack.schedule.describe
+import com.medtrack.schedule.withAddedRule
 import com.medtrack.schedule.withKind
+import com.medtrack.schedule.withMeal
+import com.medtrack.schedule.withRule
 import com.medtrack.schedule.withStartDate
+import com.medtrack.schedule.withoutRule
+import com.medtrack.ui.theme.LabelShape
+import com.medtrack.ui.theme.medColors
 import com.medtrack.ui.common.DATE
 import com.medtrack.ui.common.DatePickDialog
 import com.medtrack.ui.common.TIME
@@ -46,59 +63,91 @@ import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
+/** The medication's schedule rules (e.g. after breakfast and after dinner), plus the course dates they share. */
 @Composable
 fun ScheduleEditor(schedule: Schedule, onChange: (Schedule) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScheduleKind.entries.forEach { kind ->
-                FilterChip(
-                    selected = schedule.rule.kind == kind,
-                    onClick = { onChange(schedule.withKind(kind)) },
-                    label = { Text(kind.label) },
-                )
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        schedule.rules.forEachIndexed { index, rule ->
+            RuleBlock(
+                rule = rule,
+                startDate = schedule.startDate,
+                onChange = { onChange(schedule.withRule(index, it)) },
+                onRemove = if (schedule.rules.size > 1) ({ onChange(schedule.withoutRule(index)) }) else null,
+            )
         }
-        when (val r = schedule.rule) {
-            is ScheduleRule.DailyTimes -> TimesEditor(r.times) { onChange(schedule.copy(rule = r.copy(times = it))) }
-            is ScheduleRule.Weekdays -> {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    DayOfWeek.values().forEach { day ->
-                        FilterChip(
-                            selected = day in r.days,
-                            onClick = { onChange(schedule.copy(rule = r.copy(days = if (day in r.days) r.days - day else r.days + day))) },
-                            label = { Text(day.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)) },
-                        )
-                    }
-                }
-                TimesEditor(r.times) { onChange(schedule.copy(rule = r.copy(times = it))) }
-            }
-            is ScheduleRule.EveryNHours -> {
-                NumberField("Every how many hours", r.intervalHours) { onChange(schedule.copy(rule = r.copy(intervalHours = it))) }
-                TimeRow("First dose", r.anchor.toLocalTime()) {
-                    onChange(schedule.copy(rule = r.copy(anchor = schedule.startDate.atTime(it))))
-                }
-            }
-            is ScheduleRule.AfterMeal -> {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MealType.entries.forEach { meal ->
-                        FilterChip(
-                            selected = r.meal == meal,
-                            onClick = { onChange(schedule.copy(rule = r.copy(meal = meal))) },
-                            label = { Text(mealName(meal).replaceFirstChar { it.uppercase() }) },
-                        )
-                    }
-                }
-                NumberField("Minutes after the meal", r.delayMinutes) { onChange(schedule.copy(rule = r.copy(delayMinutes = it))) }
-                TimeRow("Remind anyway at", r.fallbackTime) { onChange(schedule.copy(rule = r.copy(fallbackTime = it))) }
-                Text(
-                    "Reminds you after a meal logged in Health Connect, or at this time if no meal is logged.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+        OutlinedButton(onClick = { onChange(schedule.withAddedRule()) }, modifier = Modifier.heightIn(min = 48.dp)) {
+            Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Add another time or meal")
         }
         DateRow("Start date", schedule.startDate, clearable = false) { it?.let { d -> onChange(schedule.withStartDate(d)) } }
         DateRow("End date (optional)", schedule.endDate, clearable = true) { onChange(schedule.copy(endDate = it)) }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RuleBlock(rule: ScheduleRule, startDate: LocalDate, onChange: (ScheduleRule) -> Unit, onRemove: (() -> Unit)?) {
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(LabelShape)
+            .background(MaterialTheme.medColors.paperRaised)
+            .border(1.dp, MaterialTheme.medColors.foil, LabelShape)
+            .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(rule.describe(), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(top = 8.dp))
+            if (onRemove != null) IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Remove ${rule.describe()}") }
+        }
+        Column(Modifier.padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ScheduleKind.entries.forEach { kind ->
+                    FilterChip(
+                        selected = rule.kind == kind,
+                        onClick = { onChange(rule.withKind(kind, startDate)) },
+                        label = { Text(kind.label) },
+                    )
+                }
+            }
+            when (val r = rule) {
+                is ScheduleRule.DailyTimes -> TimesEditor(r.times) { onChange(r.copy(times = it)) }
+                is ScheduleRule.Weekdays -> {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        DayOfWeek.values().forEach { day ->
+                            FilterChip(
+                                selected = day in r.days,
+                                onClick = { onChange(r.copy(days = if (day in r.days) r.days - day else r.days + day)) },
+                                label = { Text(day.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)) },
+                            )
+                        }
+                    }
+                    TimesEditor(r.times) { onChange(r.copy(times = it)) }
+                }
+                is ScheduleRule.EveryNHours -> {
+                    NumberField("Every how many hours", r.intervalHours) { onChange(r.copy(intervalHours = it)) }
+                    TimeRow("First dose", r.anchor.toLocalTime()) { onChange(r.copy(anchor = startDate.atTime(it))) }
+                }
+                is ScheduleRule.AfterMeal -> {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MealType.entries.forEach { meal ->
+                            FilterChip(
+                                selected = r.meal == meal,
+                                onClick = { onChange(r.withMeal(meal)) },
+                                label = { Text(mealName(meal).replaceFirstChar { it.uppercase() }) },
+                            )
+                        }
+                    }
+                    NumberField("Minutes after the meal", r.delayMinutes) { onChange(r.copy(delayMinutes = it)) }
+                    TimeRow("Remind anyway at", r.fallbackTime) { onChange(r.copy(fallbackTime = it)) }
+                    Text(
+                        "Reminds you after a meal logged in Health Connect, or at this time if no meal is logged.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.medColors.inkMuted,
+                    )
+                }
+            }
+        }
     }
 }
 

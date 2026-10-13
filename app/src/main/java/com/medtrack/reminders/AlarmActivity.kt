@@ -1,5 +1,6 @@
 package com.medtrack.reminders
 
+import com.medtrack.data.coverPhoto
 import android.graphics.Color.TRANSPARENT
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -108,7 +109,7 @@ private fun AlarmScreen(c: AppContainer, onEmpty: () -> Unit) {
 @Composable
 private fun AlarmDose(c: AppContainer, log: DoseLogEntity, med: MedicationEntity, single: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (single) PhotoHeader(med.photoPath, med.genericName) else PhotoThumb(med.photoPath, med.genericName, 120.dp)
+        if (single) PhotoHeader(med.coverPhoto, med.genericName) else PhotoThumb(med.coverPhoto, med.genericName, 120.dp)
         Text(med.displayName(), style = MaterialTheme.typography.displaySmall)
         med.doseText?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
         Text("Due ${TIME.format(log.dueAt.atZone(ZoneId.systemDefault()))}", style = MaterialTheme.typography.titleMedium.tabular())

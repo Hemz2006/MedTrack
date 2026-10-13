@@ -28,11 +28,14 @@ data class MedicationEntity(
     val rxnormStatus: SourceStatus = SourceStatus.NOT_RUN,
     val pubchemStatus: SourceStatus = SourceStatus.NOT_RUN,
     val medlineStatus: SourceStatus = SourceStatus.NOT_RUN,
-    val photoPath: String? = null,
+    /** Photo file paths; the first is the one shown in lists, notifications and alarms. */
+    val photos: List<String> = emptyList(),
     val active: Boolean = true,
     val schedule: Schedule,
     val createdAt: Instant,
 )
+
+val MedicationEntity.coverPhoto: String? get() = photos.firstOrNull()
 
 fun MedicationEntity.displayName(): String =
     brandName?.takeIf { it.isNotBlank() }?.let { "$it ($genericName)" } ?: genericName
