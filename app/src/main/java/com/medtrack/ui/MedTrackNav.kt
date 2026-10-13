@@ -76,7 +76,14 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
         },
     ) { padding ->
         NavHost(nav, startDestination = if (startOnSetup) Routes.SETTINGS else Routes.TODAY, modifier = Modifier.padding(padding)) {
-            composable(Routes.TODAY) { TodayScreen(c, onOpenSettings = { nav.navigate(Routes.SETTINGS) }) }
+            composable(Routes.TODAY) {
+                TodayScreen(
+                    c,
+                    onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+                    onAddMedication = { nav.navigate(Routes.edit(0)) },
+                    onOpenDetails = { nav.navigate(Routes.detail(it)) },
+                )
+            }
             composable(Routes.MEDS) {
                 MedicationsScreen(c, onAdd = { nav.navigate(Routes.edit(0)) }, onOpen = { nav.navigate(Routes.detail(it)) })
             }

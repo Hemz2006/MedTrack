@@ -8,6 +8,7 @@ import com.medtrack.schedule.dosesBetween
 import com.medtrack.schedule.mealName
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 data class TodayItem(
     val key: String,
@@ -18,6 +19,8 @@ data class TodayItem(
     val status: DoseStatus?,
     val snoozedUntil: Instant?,
     val mealHint: String?,
+    /** When it was taken or skipped, if recorded. */
+    val actedAt: Instant? = null,
 )
 
 /** Today's recorded doses plus the doses still to come, in time order. */
@@ -29,7 +32,7 @@ fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Ins
     val todayLogs = logs.filter { it.dueAt >= dayStart && it.dueAt < dayEnd }
 
     val recorded = todayLogs.mapNotNull { log ->
-        byId[log.medicationId]?.let { TodayItem("log-${log.id}", log.id, it, log.dueAt, log.status, log.snoozedUntil, null) }
+        byId[log.medicationId]?.let { TodayItem("log-${log.id}", log.id, it, log.dueAt, log.status, log.snoozedUntil, null, log.actedAt) }
     }
     val loggedKeys = todayLogs.map { it.medicationId to it.dueAt }.toSet()
     val handledToday = logs.filter { it.forDate == today }.map { it.medicationId }.toSet()
@@ -45,3 +48,39 @@ fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Ins
     }
     return (recorded + upcoming).sortedBy { it.dueAt }
 }
+
+/** How a dose looks as a blister capsule (Today strip and detail history). */
+enum class CapsuleState(val spoken: String) {
+    TAKEN("taken"), DUE("due now"), MISSED("missed"), SKIPPED("skipped"), UPCOMING("later"),
+}
+
+/** A rung dose that is still waiting for the user. */
+fun TodayItem.isDueNow(now: Instant): Boolean = status == DoseStatus.PENDING && dueAt <= now
+
+fun TodayItem.capsuleState(now: Instant): CapsuleState = when (status) {
+    DoseStatus.TAKEN -> CapsuleState.TAKEN
+    DoseStatus.SKIPPED -> CapsuleState.SKIPPED
+    DoseStatus.MISSED -> CapsuleState.MISSED
+    DoseStatus.PENDING -> if (isDueNow(now)) CapsuleState.DUE else CapsuleState.UPCOMING
+    null -> CapsuleState.UPCOMING
+}
+
+fun DoseStatus.capsuleState(): CapsuleState = when (this) {
+    DoseStatus.TAKEN -> CapsuleState.TAKEN
+    DoseStatus.SKIPPED -> CapsuleState.SKIPPED
+    DoseStatus.MISSED -> CapsuleState.MISSED
+    DoseStatus.PENDING -> CapsuleState.DUE
+}
+
+data class TodayGroup(val key: String, val label: String, val items: List<TodayItem>) {
+    fun isDueNow(now: Instant): Boolean = items.any { it.isDueNow(now) }
+}
+
+private val HH_MM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+/** Groups time-ordered items by display time; upcoming after-meal doses group under their meal ("After dinner, by 22:00"). */
+fun groupToday(items: List<TodayItem>, zone: ZoneId): List<TodayGroup> =
+    items.groupBy { item ->
+        val time = HH_MM.format(item.dueAt.atZone(zone))
+        item.mealHint?.let { "$it, by $time" } ?: time
+    }.map { (label, groupItems) -> TodayGroup("group-$label", label, groupItems) }
