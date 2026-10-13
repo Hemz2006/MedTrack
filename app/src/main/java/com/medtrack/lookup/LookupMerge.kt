@@ -15,7 +15,11 @@ fun MedicationEntity.applyLookup(result: LookupResult, onlyMissing: Boolean): Me
     var m = this
     if (take(m.rxnormStatus, result.rxnorm)) {
         m = if (result.rxnorm == SourceStatus.OK) {
-            m.copy(rxcui = result.rxcui, ingredients = result.ingredients, rxnormStatus = SourceStatus.OK)
+            val stored = m.ingredients.associateBy { it.name.lowercase() }
+            val ingredients = result.ingredients.map { i ->
+                if (i.formula == null) i.copy(formula = stored[i.name.lowercase()]?.formula) else i
+            }
+            m.copy(rxcui = result.rxcui, ingredients = ingredients, rxnormStatus = SourceStatus.OK)
         } else {
             m.copy(rxnormStatus = result.rxnorm)
         }

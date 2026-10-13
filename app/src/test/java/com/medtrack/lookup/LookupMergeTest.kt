@@ -43,6 +43,20 @@ class LookupMergeTest {
         assertEquals(OK, retried.pubchemStatus)
     }
 
+    @Test fun refreshWhilePubchemDownKeepsStoredFormulas() {
+        val stored = blank.applyLookup(full, onlyMissing = false)
+        val refreshed = stored.applyLookup(
+            LookupResult(
+                rxcui = "40790",
+                ingredients = listOf(Ingredient("pantoprazole", "40 MG", null)),
+                rxnorm = OK, pubchem = FAILED, medline = NOT_RUN,
+            ),
+            onlyMissing = false,
+        )
+        assertEquals(listOf(Ingredient("pantoprazole", "40 MG", "C16H15F2N3O4S")), refreshed.ingredients)
+        assertEquals(FAILED, refreshed.pubchemStatus)
+    }
+
     @Test fun failureKeepsOldData() {
         val m = blank.applyLookup(full, onlyMissing = false).applyLookup(LookupResult(rxnorm = FAILED), onlyMissing = false)
         assertEquals(FAILED, m.rxnormStatus)
