@@ -4,7 +4,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,36 +12,43 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import com.medtrack.data.PhotoStore
+import com.medtrack.ui.theme.LabelShape
+import com.medtrack.ui.theme.medColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
 
-private val placeholderColors = listOf(
-    Color(0xFF2E7D6B), Color(0xFF5C6BC0), Color(0xFFEF6C00), Color(0xFF8E24AA), Color(0xFF00838F), Color(0xFFC62828),
-)
-
-/** The medication's photo, or a coloured tile with its initial. */
+/** The medication's photo, or a foil tile with its initial. */
 @Composable
-fun PhotoThumb(path: String?, name: String, size: Dp) {
+fun PhotoThumb(path: String?, name: String, size: Dp, modifier: Modifier = Modifier) {
     val bitmap by produceState<ImageBitmap?>(null, path) {
         value = path?.let { withContext(Dispatchers.IO) { PhotoStore.decodeSampled(it, 512)?.asImageBitmap() } }
     }
-    val shape = RoundedCornerShape(12)
     val current = bitmap
     if (current != null) {
-        Image(current, "Photo of $name", Modifier.size(size).clip(shape), contentScale = ContentScale.Crop)
+        Image(current, "Photo of $name", modifier.size(size).clip(LabelShape), contentScale = ContentScale.Crop)
     } else {
         Box(
-            Modifier.size(size).clip(shape).background(placeholderColors[abs(name.hashCode()) % placeholderColors.size]),
+            modifier.size(size).clip(LabelShape).background(MaterialTheme.medColors.foil)
+                .clearAndSetSemantics { contentDescription = "No photo of $name" },
             contentAlignment = Alignment.Center,
         ) {
-            Text(name.take(1).uppercase(), color = Color.White, style = MaterialTheme.typography.titleLarge)
+            Text(
+                name.take(1).uppercase(),
+                color = MaterialTheme.medColors.ink,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = initialSize(size)),
+            )
         }
     }
 }
+
+/** Scales the initial with the tile, but never past the 22sp title size on small tiles. */
+private fun initialSize(size: Dp): TextUnit = (size.value * 0.4f).coerceIn(15f, 48f).sp
