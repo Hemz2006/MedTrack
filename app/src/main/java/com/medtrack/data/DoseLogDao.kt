@@ -44,6 +44,9 @@ interface DoseLogDao {
     @Query("UPDATE dose_logs SET status = :status, actedAt = :actedAt, snoozedUntil = NULL WHERE id = :id")
     suspend fun setStatus(id: Long, status: DoseStatus, actedAt: Instant?)
 
+    @Query("DELETE FROM dose_logs WHERE id = :id")
+    suspend fun delete(id: Long)
+
     @Query("UPDATE dose_logs SET snoozedUntil = :until WHERE id = :id AND status = 'PENDING'")
     suspend fun snooze(id: Long, until: Instant)
 

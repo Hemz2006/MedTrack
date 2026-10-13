@@ -197,4 +197,69 @@ class ReminderEngineTest {
         assertNull(nextAlarm())
         assertEquals(DoseStatus.PENDING, db.doseLogDao().pending().single().status)
     }
+    @Test fun undoAfterTakingRungDoseReturnsItToPending() = runBlocking {
+        addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        syncAt("2026-10-13T08:00")
+        val log = db.doseLogDao().pending().single()
+        now = at("2026-10-13T08:05")
+        engine.markTaken(log.id)
+        engine.undo(log.id, DoseStatus.PENDING)
+        val restored = db.doseLogDao().get(log.id)!!
+        assertEquals(DoseStatus.PENDING, restored.status)
+        assertNull(restored.actedAt)
+        assertEquals(at("2026-10-13T10:00"), nextAlarm())
+    }
+
+    @Test fun undoAfterTakingMissedDoseReturnsItToMissed() = runBlocking {
+        addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        syncAt("2026-10-13T08:00")
+        syncAt("2026-10-13T10:00")
+        val log = db.doseLogDao().since(Instant.EPOCH).single()
+        engine.markTaken(log.id)
+        engine.undo(log.id, DoseStatus.MISSED)
+        val restored = db.doseLogDao().get(log.id)!!
+        assertEquals(DoseStatus.MISSED, restored.status)
+        assertNull(restored.actedAt)
+    }
+
+    @Test fun undoAfterTakingUpcomingDoseRemovesLogAndStillRings() = runBlocking {
+        val id = addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        now = at("2026-10-13T07:30")
+        val recorded = engine.recordUpcoming(id, at("2026-10-13T08:00"), DoseStatus.TAKEN)!!
+        assertNull(recorded.previous)
+        engine.undo(recorded.logId, recorded.previous)
+        assertEquals(0, db.doseLogDao().since(Instant.EPOCH).size)
+        assertEquals(at("2026-10-13T08:00"), nextAlarm())
+        syncAt("2026-10-13T08:00")
+        assertEquals(1, doseNotifications().size)
+        assertEquals(DoseStatus.PENDING, db.doseLogDao().pending().single().status)
+    }
+
+    @Test fun recordUpcomingOverRungDoseCanBeUndoneToPending() = runBlocking {
+        val id = addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        syncAt("2026-10-13T08:00")
+        val recorded = engine.recordUpcoming(id, at("2026-10-13T08:00"), DoseStatus.SKIPPED)!!
+        assertEquals(DoseStatus.PENDING, recorded.previous)
+        engine.undo(recorded.logId, recorded.previous)
+        assertEquals(DoseStatus.PENDING, db.doseLogDao().get(recorded.logId)!!.status)
+    }
+
+    @Test fun undoUpcomingAfterItsTimePassedKeepsTheDoseDue() = runBlocking {
+        val id = addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        now = at("2026-10-13T07:59")
+        val recorded = engine.recordUpcoming(id, at("2026-10-13T08:00"), DoseStatus.TAKEN)!!
+        syncAt("2026-10-13T08:00")
+        now = at("2026-10-13T08:01")
+        engine.undo(recorded.logId, recorded.previous)
+        // The 08:00 scan already passed this dose by, so deleting the log would lose it; it stays due instead.
+        val log = db.doseLogDao().get(recorded.logId)!!
+        assertEquals(DoseStatus.PENDING, log.status)
+        assertNull(log.actedAt)
+        assertEquals(at("2026-10-13T10:00"), nextAlarm())
+    }
 }

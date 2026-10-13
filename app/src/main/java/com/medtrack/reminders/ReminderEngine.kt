@@ -15,6 +15,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
+/** What [ReminderEngine.undo] needs to reverse a choice: the log and its status before (null = it had no log). */
+data class UndoTarget(val logId: Long, val previous: DoseStatus?)
+
 /**
  * Owns dose logs, notifications and the wake-up alarm. Every entry point ends with a scan,
  * so the stored state, the visible notifications and the next alarm always agree.
@@ -43,17 +46,41 @@ class ReminderEngine(
         scan()
     }
 
-    /** Taken/skipped from the Today screen before the dose rang; stops it ringing later. */
-    suspend fun recordUpcoming(medicationId: Long, dueAt: Instant, status: DoseStatus) = mutex.withLock {
+    /**
+     * Taken/skipped from the Today screen before the dose rang; stops it ringing later.
+     * Returns what [undo] needs to reverse it, or null when nothing changed (the dose was already handled).
+     */
+    suspend fun recordUpcoming(medicationId: Long, dueAt: Instant, status: DoseStatus): UndoTarget? = mutex.withLock {
         val at = now()
         val id = doseLogs.insertIgnore(
             DoseLogEntity(medicationId = medicationId, dueAt = dueAt, status = status, trigger = DoseTrigger.SCHEDULE, forDate = dueAt.atZone(clock().zone).toLocalDate(), actedAt = at),
         )
-        if (id < 0) {
+        val target = if (id > 0) {
+            UndoTarget(id, null)
+        } else {
             // The alarm scan got there first; the user's choice must still win over the pending dose.
             doseLogs.find(medicationId, dueAt)?.takeIf { it.status == DoseStatus.PENDING }?.let {
                 doseLogs.setStatus(it.id, status, at)
                 notifier.cancel(it.id)
+                UndoTarget(it.id, DoseStatus.PENDING)
+            }
+        }
+        scan()
+        target
+    }
+
+    /**
+     * Reverses a take/skip: restores [previous] (unacted), or with null deletes the log [recordUpcoming] created
+     * so the dose is upcoming again. If a scan has already passed that dose's time, deleting would lose it,
+     * so it is restored as PENDING instead. A restored PENDING dose is not re-posted until its next ring time.
+     */
+    suspend fun undo(logId: Long, previous: DoseStatus?) = mutex.withLock {
+        val log = doseLogs.get(logId)
+        if (log != null) {
+            when {
+                previous != null -> doseLogs.setStatus(logId, previous, null)
+                log.dueAt <= (prefs.lastScanAt ?: now()) -> doseLogs.setStatus(logId, DoseStatus.PENDING, null)
+                else -> doseLogs.delete(logId)
             }
         }
         scan()
