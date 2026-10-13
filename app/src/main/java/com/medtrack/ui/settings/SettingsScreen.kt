@@ -9,12 +9,20 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +35,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -37,6 +46,8 @@ import com.medtrack.AppContainer
 import com.medtrack.health.HealthStatus
 import com.medtrack.reminders.DoseNotifier
 import com.medtrack.ui.common.ScreenScaffold
+import com.medtrack.ui.theme.LabelShape
+import com.medtrack.ui.theme.medColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -93,11 +104,12 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
             }
             Text(
                 "On Xiaomi, Oppo, Vivo and Samsung phones, also allow MedTrack to auto-start and run in the background in the phone's battery settings. After the phone restarts, reminders resume once you unlock it.",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.medColors.inkMuted,
                 modifier = Modifier.padding(16.dp),
             )
 
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.medColors.foil)
             Text("Meal reminders (optional)", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
             val (healthText, healthAction) = when (s.health) {
                 HealthStatus.NOT_INSTALLED -> "Health Connect isn't installed." to ("Install" to { context.openHealthConnectStore() })
@@ -108,7 +120,7 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
                 HealthStatus.CONNECTED -> "Connected. MedTrack reads the meals you log." to null
             }
             ListItem(
-                headlineContent = { Text("Health Connect") },
+                headlineContent = { Text("Health Connect", style = MaterialTheme.typography.titleMedium) },
                 supportingContent = { Text(healthText) },
                 trailingContent = { healthAction?.let { (label, action) -> TextButton(onClick = action) { Text(label) } } },
             )
@@ -125,10 +137,38 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
 @Composable
 private fun Row(title: String, ok: Boolean, onFix: () -> Unit) {
     ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(if (ok) "Allowed" else "Needed for reliable reminders") },
-        trailingContent = { if (!ok) TextButton(onClick = onFix) { Text("Allow") } },
+        headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) },
+        supportingContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+                StatusTag(ok)
+                if (!ok) Text("Needed for reliable reminders")
+            }
+        },
+        trailingContent = { if (!ok) TextButton(onClick = onFix, modifier = Modifier.heightIn(min = 48.dp)) { Text("Allow") } },
     )
+}
+
+/**
+ * "Allowed" in the taken colour, or "Needs attention" on an amber tag. Amber is too light for text on paper,
+ * so the attention tag is dark text on an amber block instead.
+ */
+@Composable
+private fun StatusTag(ok: Boolean) {
+    val colors = MaterialTheme.medColors
+    if (ok) {
+        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Check, contentDescription = null, tint = colors.taken, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Allowed", style = MaterialTheme.typography.labelLarge, color = colors.taken)
+        }
+    } else {
+        Text(
+            "Needs attention",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onAmber,
+            modifier = Modifier.background(colors.amber, LabelShape).padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
 }
 
 private fun Context.packageUri(): Uri = Uri.parse("package:$packageName")

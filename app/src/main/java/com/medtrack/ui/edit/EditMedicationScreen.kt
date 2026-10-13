@@ -1,14 +1,18 @@
 package com.medtrack.ui.edit
 
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,9 +22,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,8 +53,11 @@ import com.medtrack.data.SourceStatus
 import com.medtrack.ui.common.PhotoThumb
 import com.medtrack.ui.common.ScreenScaffold
 import com.medtrack.ui.common.containerViewModel
+import com.medtrack.ui.theme.LabelShape
+import com.medtrack.ui.theme.medColors
 import java.io.File
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
     val vm = containerViewModel { EditViewModel(c, id) }
@@ -80,62 +89,79 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
         if (!state.loaded) return@ScreenScaffold
         Column(
             Modifier.padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.error?.let { Text(it, color = MaterialTheme.medColors.missed) }
 
-            OutlinedTextField(
-                value = med.genericName,
-                onValueChange = vm::onNameChanged,
-                label = { Text("Generic name (e.g. paracetamol)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            state.suggestions.forEach { s ->
-                TextButton(onClick = { vm.pickSuggestion(s) }) { Text(s.name) }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { vm.lookUp(onlyMissing = false) }, enabled = med.genericName.isNotBlank() && !state.lookingUp) {
-                    Text("Look up info")
+            Section("Medication") {
+                OutlinedTextField(
+                    value = med.genericName,
+                    onValueChange = vm::onNameChanged,
+                    label = { Text("Generic name (e.g. paracetamol)") },
+                    singleLine = true,
+                    colors = fieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                state.suggestions.forEach { s ->
+                    TextButton(onClick = { vm.pickSuggestion(s) }) { Text(s.name) }
                 }
-                if (state.lookingUp) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { vm.lookUp(onlyMissing = false) }, enabled = med.genericName.isNotBlank() && !state.lookingUp) {
+                        Text("Look up info")
+                    }
+                    if (state.lookingUp) {
+                        Spacer(Modifier.width(12.dp))
+                        CircularProgressIndicator(Modifier.size(24.dp))
+                    }
+                }
+                LookupStatus(med, state.lookingUp) { vm.lookUp(onlyMissing = true) }
+                OutlinedTextField(med.brandName.orEmpty(), { v -> vm.update { it.copy(brandName = v) } }, Modifier.fillMaxWidth(), label = { Text("Brand name (optional)") }, singleLine = true, colors = fieldColors())
+                OutlinedTextField(med.doseText.orEmpty(), { v -> vm.update { it.copy(doseText = v) } }, Modifier.fillMaxWidth(), label = { Text("Dose (e.g. 1 tablet, 40 mg)") }, singleLine = true, colors = fieldColors())
+            }
+
+            Section("What's in it") {
+                IngredientsEditor(med.ingredients) { list -> vm.update { it.copy(ingredients = list) } }
+                if (med.rxnormStatus == SourceStatus.OK) SourceNote("Ingredients from RxNorm")
+                if (med.pubchemStatus == SourceStatus.OK) SourceNote("Formulas from PubChem")
+                OutlinedTextField(med.usedFor.orEmpty(), { v -> vm.update { it.copy(usedFor = v) } }, Modifier.fillMaxWidth(), label = { Text("Used for") }, minLines = 2, colors = fieldColors())
+                if (med.medlineStatus == SourceStatus.OK) SourceNote("From MedlinePlus")
+                SourceNote("General information, not medical advice.")
+            }
+
+            Section("How you take it") {
+                OutlinedTextField(med.notes.orEmpty(), { v -> vm.update { it.copy(notes = v) } }, Modifier.fillMaxWidth(), label = { Text("My notes (how I take it)") }, minLines = 2, colors = fieldColors())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PhotoThumb(med.photoPath, med.genericName.ifBlank { "?" }, 72.dp)
                     Spacer(Modifier.width(12.dp))
-                    CircularProgressIndicator(Modifier.size(24.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = ::launchCamera) { Text("Camera") }
+                        OutlinedButton(onClick = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Gallery") }
+                        if (med.photoPath != null) TextButton(onClick = vm::removePhoto) { Text("Remove") }
+                    }
                 }
             }
-            LookupStatus(med, state.lookingUp) { vm.lookUp(onlyMissing = true) }
 
-            OutlinedTextField(med.brandName.orEmpty(), { v -> vm.update { it.copy(brandName = v) } }, Modifier.fillMaxWidth(), label = { Text("Brand name (optional)") }, singleLine = true)
-            OutlinedTextField(med.doseText.orEmpty(), { v -> vm.update { it.copy(doseText = v) } }, Modifier.fillMaxWidth(), label = { Text("Dose (e.g. 1 tablet, 40 mg)") }, singleLine = true)
-
-            Text("Active ingredients", style = MaterialTheme.typography.titleMedium)
-            IngredientsEditor(med.ingredients) { list -> vm.update { it.copy(ingredients = list) } }
-            if (med.rxnormStatus == SourceStatus.OK) SourceNote("Ingredients from RxNorm")
-            if (med.pubchemStatus == SourceStatus.OK) SourceNote("Formulas from PubChem")
-
-            OutlinedTextField(med.usedFor.orEmpty(), { v -> vm.update { it.copy(usedFor = v) } }, Modifier.fillMaxWidth(), label = { Text("Used for") }, minLines = 2)
-            if (med.medlineStatus == SourceStatus.OK) SourceNote("From MedlinePlus")
-            SourceNote("General information, not medical advice.")
-
-            OutlinedTextField(med.notes.orEmpty(), { v -> vm.update { it.copy(notes = v) } }, Modifier.fillMaxWidth(), label = { Text("My notes (how I take it)") }, minLines = 2)
-
-            HorizontalDivider()
-            Text("Photo", style = MaterialTheme.typography.titleMedium)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PhotoThumb(med.photoPath, med.genericName.ifBlank { "?" }, 72.dp)
-                OutlinedButton(onClick = ::launchCamera) { Text("Camera") }
-                OutlinedButton(onClick = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Gallery") }
-                if (med.photoPath != null) TextButton(onClick = vm::removePhoto) { Text("Remove") }
+            Section("Schedule") {
+                ScheduleEditor(med.schedule) { s -> vm.update { it.copy(schedule = s) } }
             }
 
-            HorizontalDivider()
-            Text("Schedule", style = MaterialTheme.typography.titleMedium)
-            ScheduleEditor(med.schedule) { s -> vm.update { it.copy(schedule = s) } }
-
-            Button(onClick = vm::save, modifier = Modifier.fillMaxWidth()) { Text("Save") }
+            Button(onClick = vm::save, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Save") }
         }
     }
 }
+
+/** A titled group of fields; sections sit 24dp apart. */
+@Composable
+private fun Section(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+        content()
+    }
+}
+
+/** Field outlines in muted ink: the foil outline colour is too faint for an input's edge. */
+@Composable
+internal fun fieldColors() = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.medColors.inkMuted)
 
 @Composable
 private fun LookupStatus(med: MedicationEntity, lookingUp: Boolean, onRetry: () -> Unit) {
@@ -151,30 +177,30 @@ private fun LookupStatus(med: MedicationEntity, lookingUp: Boolean, onRetry: () 
     }
     problems.forEach { message ->
         if (message.endsWith("retry")) {
-            TextButton(onClick = onRetry) { Text(message, color = MaterialTheme.colorScheme.error) }
+            TextButton(onClick = onRetry) { Text(message, color = MaterialTheme.medColors.missed) }
         } else {
-            Text(message, color = MaterialTheme.colorScheme.error)
+            Text(message, color = MaterialTheme.medColors.missed)
         }
     }
 }
 
 @Composable
-private fun SourceNote(text: String) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+private fun SourceNote(text: String) = Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.medColors.inkMuted)
 
 @Composable
 private fun IngredientsEditor(ingredients: List<Ingredient>, onChange: (List<Ingredient>) -> Unit) {
     ingredients.forEachIndexed { index, ingredient ->
         fun set(updated: Ingredient) = onChange(ingredients.toMutableList().also { it[index] = updated })
-        Card(Modifier.fillMaxWidth()) {
+        Surface(shape = LabelShape, color = MaterialTheme.medColors.paperRaised, border = BorderStroke(1.dp, MaterialTheme.medColors.foil), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(ingredient.name, { set(ingredient.copy(name = it)) }, Modifier.weight(1f), label = { Text("Ingredient") }, singleLine = true)
+                    OutlinedTextField(ingredient.name, { set(ingredient.copy(name = it)) }, Modifier.weight(1f), label = { Text("Ingredient") }, singleLine = true, colors = fieldColors())
                     IconButton(onClick = { onChange(ingredients.filterIndexed { i, _ -> i != index }) }) {
                         Icon(Icons.Default.Delete, "Remove ingredient")
                     }
                 }
-                OutlinedTextField(ingredient.strength.orEmpty(), { set(ingredient.copy(strength = it.ifEmpty { null })) }, Modifier.fillMaxWidth(), label = { Text("Strength") }, singleLine = true)
-                OutlinedTextField(ingredient.formula.orEmpty(), { set(ingredient.copy(formula = it.ifEmpty { null })) }, Modifier.fillMaxWidth(), label = { Text("Chemical formula") }, singleLine = true)
+                OutlinedTextField(ingredient.strength.orEmpty(), { set(ingredient.copy(strength = it.ifEmpty { null })) }, Modifier.fillMaxWidth(), label = { Text("Strength") }, singleLine = true, colors = fieldColors())
+                OutlinedTextField(ingredient.formula.orEmpty(), { set(ingredient.copy(formula = it.ifEmpty { null })) }, Modifier.fillMaxWidth(), label = { Text("Chemical formula") }, singleLine = true, colors = fieldColors())
             }
         }
     }

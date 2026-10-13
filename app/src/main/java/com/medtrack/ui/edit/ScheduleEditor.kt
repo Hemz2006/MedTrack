@@ -39,6 +39,7 @@ import com.medtrack.ui.common.DATE
 import com.medtrack.ui.common.DatePickDialog
 import com.medtrack.ui.common.TIME
 import com.medtrack.ui.common.TimePickDialog
+import com.medtrack.ui.theme.tabular
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -139,6 +140,7 @@ private fun NumberField(label: String, value: Int, onChange: (Int) -> Unit) {
         },
         label = { Text(label) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        colors = fieldColors(),
         singleLine = true,
     )
 }
@@ -148,7 +150,7 @@ private fun TimeRow(label: String, time: LocalTime, onChange: (LocalTime) -> Uni
     var picking by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("$label: ")
-        TextButton(onClick = { picking = true }) { Text(time.format(TIME)) }
+        TextButton(onClick = { picking = true }) { Text(time.format(TIME), style = MaterialTheme.typography.titleMedium.tabular()) }
     }
     if (picking) TimePickDialog(time, onDismiss = { picking = false }) { picking = false; onChange(it) }
 }
