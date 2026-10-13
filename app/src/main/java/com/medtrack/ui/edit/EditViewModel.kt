@@ -6,7 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.medtrack.AppContainer
 import com.medtrack.data.MedicationEntity
 import com.medtrack.data.newMedication
+import com.medtrack.lookup.Brand
 import com.medtrack.lookup.Suggestion
+import com.medtrack.lookup.brandKey
+import com.medtrack.lookup.formatComposition
+import com.medtrack.lookup.parseComposition
 import com.medtrack.lookup.applyLookup
 import com.medtrack.schedule.validationError
 import kotlinx.coroutines.CancellationException
@@ -27,6 +31,7 @@ data class EditState(
     val loaded: Boolean = false,
     val med: MedicationEntity,
     val suggestions: List<Suggestion> = emptyList(),
+    val brandSuggestions: List<Brand> = emptyList(),
     val lookingUp: Boolean = false,
     val error: String? = null,
     val saving: Boolean = false,
@@ -37,9 +42,10 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
     private val _state = MutableStateFlow(EditState(med = newMedication(LocalDate.now(), Instant.now())))
     val state = _state.asStateFlow()
 
-    /** The photo stored in the database; a new photo replaces it only on save. */
-    private var savedPhoto: String? = null
+    /** The photos stored in the database; files of removed ones are deleted only on save. */
+    private var savedPhotos: List<String> = emptyList()
     private var suggestJob: Job? = null
+    private var brandJob: Job? = null
     private var lookupJob: Job? = null
 
     init {
@@ -48,7 +54,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         } else {
             viewModelScope.launch {
                 val existing = c.db.medicationDao().get(id)
-                savedPhoto = existing?.photoPath
+                savedPhotos = existing?.photos.orEmpty()
                 _state.update { s -> if (existing == null) s.copy(loaded = true) else s.copy(med = existing, loaded = true) }
             }
         }
@@ -72,6 +78,45 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         }
     }
 
+    fun onBrandChanged(name: String) {
+        update { it.copy(brandName = name) }
+        brandJob?.cancel()
+        if (brandKey(name).length < 2) {
+            _state.update { it.copy(brandSuggestions = emptyList()) }
+            return
+        }
+        brandJob = viewModelScope.launch {
+            delay(250)
+            // Brands you've saved before come first: they also cover brands missing from the list.
+            val own = c.db.medicationDao().all()
+                .filter { it.id != id && it.ingredients.isNotEmpty() && brandKey(it.brandName.orEmpty()).startsWith(brandKey(name)) }
+                .map { Brand(it.brandName!!, it.ingredients.formatComposition(), null, saved = true) }
+            val listed = c.brands.search(name)
+            _state.update { s -> s.copy(brandSuggestions = (own + listed).distinctBy { it.name.lowercase() to it.composition.lowercase() }.take(8)) }
+        }
+    }
+
+    /** Fills in the composition printed on that brand's pack, then looks up each ingredient. */
+    fun pickBrand(brand: Brand) {
+        brandJob?.cancel()
+        suggestJob?.cancel()
+        cancelLookup()
+        val ingredients = parseComposition(brand.composition)
+        _state.update {
+            it.copy(
+                brandSuggestions = emptyList(),
+                suggestions = emptyList(),
+                med = it.med.copy(
+                    brandName = brand.name,
+                    genericName = ingredients.joinToString(" + ") { i -> i.name },
+                    ingredients = ingredients,
+                    rxcui = null,
+                ),
+            )
+        }
+        lookUp(onlyMissing = false)
+    }
+
     fun pickSuggestion(suggestion: Suggestion) {
         suggestJob?.cancel()
         cancelLookup()
@@ -88,13 +133,12 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
     /** [onlyMissing] retries failed sources without overwriting fields that already came back OK. A new lookup replaces a running one. */
     fun lookUp(onlyMissing: Boolean) {
         val med = _state.value.med
-        val name = med.genericName.trim()
-        if (name.isEmpty()) return
+        if (med.genericName.isBlank() && med.ingredients.isEmpty()) return
         lookupJob?.cancel()
         _state.update { it.copy(lookingUp = true, suggestions = emptyList()) }
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
-                c.lookup.lookup(name, med.rxcui) { partial ->
+                c.lookup.lookupFor(med.genericName.trim(), med.ingredients, med.rxcui) { partial ->
                     _state.update { s -> s.copy(med = s.med.applyLookup(partial, onlyMissing)) }
                 }
             } finally {
@@ -108,31 +152,37 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         job.start()
     }
 
-    fun setPhoto(uri: Uri) {
+    fun addPhotos(uris: List<Uri>) {
         viewModelScope.launch {
-            val path = try {
-                c.photos.importFrom(uri)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.update { it.copy(error = "Couldn't load that photo") }
-                return@launch
+            var failed = 0
+            for (uri in uris) {
+                val path = try {
+                    c.photos.importFrom(uri)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failed++
+                    continue
+                }
+                update { it.copy(photos = it.photos + path) }
             }
-            discardUnsavedPhoto()
-            update { it.copy(photoPath = path) }
+            if (failed > 0) _state.update { it.copy(error = if (failed == 1) "Couldn't load one photo" else "Couldn't load $failed photos") }
         }
     }
 
-    fun removePhoto() {
-        discardUnsavedPhoto()
-        update { it.copy(photoPath = null) }
+    fun removePhoto(path: String) {
+        if (path !in savedPhotos) c.photos.delete(path)
+        update { it.copy(photos = it.photos - path) }
     }
+
+    /** Moves [path] to the front, so it is shown in lists, notifications and alarms. */
+    fun makeMainPhoto(path: String) = update { it.copy(photos = listOf(path) + (it.photos - path)) }
 
     fun save() {
         val current = _state.value
         if (current.saving || current.saved) return
         val med = current.med
-        val error = if (med.genericName.isBlank()) "Enter the medication name" else med.schedule.validationError()
+        val error = if (med.genericName.isBlank() && med.brandName.isNullOrBlank()) "Enter the medicine's name" else med.schedule.validationError()
         if (error != null) {
             _state.update { it.copy(error = error) }
             return
@@ -150,8 +200,8 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
                             notes = med.notes?.trim()?.ifEmpty { null },
                         ),
                     )
-                    if (savedPhoto != med.photoPath) c.photos.delete(savedPhoto)
-                    savedPhoto = med.photoPath
+                    (savedPhotos - med.photos.toSet()).forEach(c.photos::delete)
+                    savedPhotos = med.photos
                     _state.update { it.copy(saving = false, saved = true) }
                 }
             } catch (e: CancellationException) {
@@ -162,12 +212,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         }
     }
 
-    private fun discardUnsavedPhoto() {
-        val current = _state.value.med.photoPath
-        if (current != savedPhoto) c.photos.delete(current)
-    }
-
     override fun onCleared() {
-        if (!_state.value.saved && !_state.value.saving) discardUnsavedPhoto()
+        if (!_state.value.saved && !_state.value.saving) (_state.value.med.photos - savedPhotos.toSet()).forEach(c.photos::delete)
     }
 }

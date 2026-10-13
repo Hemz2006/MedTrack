@@ -13,6 +13,8 @@ data class LookupResult(
     val rxnorm: SourceStatus = SourceStatus.NOT_RUN,
     val pubchem: SourceStatus = SourceStatus.NOT_RUN,
     val medline: SourceStatus = SourceStatus.NOT_RUN,
+    /** The ingredients came from the pack or the user, not from RxNorm, so they apply even if RxNorm finds nothing. */
+    val fromLabel: Boolean = false,
 )
 
 /** Looks a generic name up in RxNorm, then PubChem (formula per ingredient), then MedlinePlus (usage). */
@@ -60,12 +62,64 @@ class MedicationLookup(private val fetch: Fetch) {
         return result
     }
 
+    /**
+     * Chooses how to look up a medication. A typed composition ("Calcium carbonate + Calcitriol") or ingredients
+     * known from the pack (an Indian brand) are looked up one by one; a single bare generic name goes through RxNorm,
+     * which also finds its ingredients and strengths.
+     */
+    suspend fun lookupFor(
+        genericName: String,
+        ingredients: List<Ingredient>,
+        knownRxcui: String?,
+        onProgress: (LookupResult) -> Unit = {},
+    ): LookupResult {
+        val typed = parseComposition(genericName)
+        val known = ingredients.associateBy { it.name.lowercase() }
+        return when {
+            typed.isEmpty() ->
+                if (ingredients.isEmpty()) LookupResult() else lookupIngredients(ingredients, onProgress)
+            typed.size == 1 && typed[0].strength == null && typed[0].name.lowercase() !in known ->
+                lookup(genericName, knownRxcui, onProgress)
+            else -> lookupIngredients(
+                typed.map { t -> known[t.name.lowercase()]?.let { k -> t.copy(strength = t.strength ?: k.strength) } ?: t },
+                onProgress,
+            )
+        }
+    }
+
+    /** Looks up ingredients read off a pack: an RxNorm id for each, PubChem formulas, then MedlinePlus usage. */
+    suspend fun lookupIngredients(ingredients: List<Ingredient>, onProgress: (LookupResult) -> Unit = {}): LookupResult {
+        val rxcuis = mutableListOf<String>()
+        var failed = false
+        for (ingredient in ingredients) {
+            try {
+                getOrNull("$RXNAV/rxcui.json?name=${enc(ingredient.searchName())}&search=2")?.let(::parseRxcui)?.let { rxcuis += it }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed = true
+            }
+        }
+        val status = when {
+            rxcuis.isNotEmpty() -> SourceStatus.OK
+            failed -> SourceStatus.FAILED
+            else -> SourceStatus.NOT_FOUND
+        }
+        var result = LookupResult(rxcui = rxcuis.firstOrNull(), ingredients = ingredients, rxnorm = status, fromLabel = true)
+        onProgress(result)
+        result = withFormulas(result)
+        onProgress(result)
+        result = if (rxcuis.isEmpty()) result.copy(medline = status) else withUsedFor(result, rxcuis)
+        onProgress(result)
+        return result
+    }
+
     private suspend fun withFormulas(result: LookupResult): LookupResult {
         var found = false
         var failed = false
         val ingredients = result.ingredients.map { ingredient ->
             try {
-                val formula = getOrNull("$PUBCHEM/compound/name/${encPath(ingredient.name)}/property/MolecularFormula/JSON")
+                val formula = getOrNull("$PUBCHEM/compound/name/${encPath(ingredient.searchName())}/property/MolecularFormula/JSON")
                     ?.let(::parseFormula)
                 if (formula != null) found = true
                 ingredient.copy(formula = formula)

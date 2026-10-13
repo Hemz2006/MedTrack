@@ -36,12 +36,24 @@ sealed interface ScheduleRule {
     data class AfterMeal(val meal: MealType, val delayMinutes: Int, val fallbackTime: LocalTime) : ScheduleRule
 }
 
+/** One or more rules (e.g. after breakfast and after dinner) sharing a course's start and end dates. */
 @Serializable
 data class Schedule(
-    val rule: ScheduleRule,
+    val rules: List<ScheduleRule>,
     val startDate: LocalDate,
     val endDate: LocalDate? = null,
-)
+) {
+    constructor(rule: ScheduleRule, startDate: LocalDate, endDate: LocalDate? = null) : this(listOf(rule), startDate, endDate)
+}
+
+/**
+ * Identifies a rule's doses in the dose log where that matters: an after-meal rule's day is "handled"
+ * once its meal or fallback dose is logged, independently of the medication's other rules.
+ */
+val ScheduleRule.slot: String?
+    get() = (this as? ScheduleRule.AfterMeal)?.let { "meal:${it.meal}" }
+
+val Schedule.hasMealRule: Boolean get() = rules.any { it is ScheduleRule.AfterMeal }
 
 object ScheduleJson {
     private val json = Json { ignoreUnknownKeys = true }
@@ -52,7 +64,15 @@ object ScheduleJson {
 /** A user-facing message describing why the schedule can't be saved, or null if it's valid. */
 fun Schedule.validationError(): String? {
     if (endDate != null && endDate < startDate) return "End date is before start date"
-    return when (val r = rule) {
+    if (rules.isEmpty()) return "Add at least one schedule"
+    val meals = rules.filterIsInstance<ScheduleRule.AfterMeal>().map { it.meal }
+    if (meals.size != meals.distinct().size) return "Each meal can only have one after-meal schedule"
+    if (MealType.ANY in meals && meals.size > 1) return "\"Any meal\" can't be combined with other after-meal schedules"
+    return rules.firstNotNullOfOrNull { it.validationError() }
+}
+
+private fun ScheduleRule.validationError(): String? {
+    return when (val r = this) {
         is ScheduleRule.DailyTimes -> if (r.times.isEmpty()) "Add at least one time" else null
         is ScheduleRule.Weekdays -> when {
             r.days.isEmpty() -> "Pick at least one day"

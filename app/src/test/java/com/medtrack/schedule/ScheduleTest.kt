@@ -35,6 +35,25 @@ class ScheduleTest {
         assertEquals("Interval must be 1–24 hours", Schedule(ScheduleRule.EveryNHours(0, LocalDateTime.of(start, t("06:00"))), start).validationError())
         assertEquals("Delay must be 0–240 minutes", Schedule(ScheduleRule.AfterMeal(MealType.ANY, 300, t("10:00")), start).validationError())
         assertEquals("End date is before start date", Schedule(ScheduleRule.DailyTimes(listOf(t("08:00"))), start, start.minusDays(1)).validationError())
+        assertEquals("Add at least one schedule", Schedule(emptyList(), start).validationError())
+        val breakfast = ScheduleRule.AfterMeal(MealType.BREAKFAST, 0, t("10:00"))
+        assertEquals("Each meal can only have one after-meal schedule", Schedule(listOf(breakfast, breakfast.copy(delayMinutes = 30)), start).validationError())
+        assertEquals(
+            "\"Any meal\" can't be combined with other after-meal schedules",
+            Schedule(listOf(breakfast, ScheduleRule.AfterMeal(MealType.ANY, 0, t("13:00"))), start).validationError(),
+        )
+        // A later rule's error is reported too.
+        assertEquals("Add at least one time", Schedule(listOf(breakfast, ScheduleRule.DailyTimes(emptyList())), start).validationError())
+    }
+
+    @Test fun describesSeveralRules() {
+        val s = Schedule(
+            listOf(ScheduleRule.AfterMeal(MealType.BREAKFAST, 0, t("10:00")), ScheduleRule.AfterMeal(MealType.DINNER, 30, t("22:00"))),
+            start,
+            start.plusDays(7),
+        )
+        assertEquals("Right after breakfast (by 10:00); 30 min after dinner (by 22:00), until 20 Oct", s.describe())
+        assertEquals(s, ScheduleJson.decode(ScheduleJson.encode(s)))
     }
 
     @Test fun describesEachRuleType() {

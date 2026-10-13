@@ -22,6 +22,9 @@ interface MedicationDao {
     @Query("SELECT * FROM medications ORDER BY active DESC, genericName COLLATE NOCASE")
     fun observeAll(): Flow<List<MedicationEntity>>
 
+    @Query("SELECT * FROM medications")
+    suspend fun all(): List<MedicationEntity>
+
     @Query("SELECT * FROM medications WHERE active = 1")
     suspend fun active(): List<MedicationEntity>
 

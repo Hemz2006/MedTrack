@@ -1,5 +1,6 @@
 package com.medtrack.lookup
 
+import com.medtrack.data.Ingredient
 import com.medtrack.data.MedicationEntity
 import com.medtrack.data.SourceStatus
 
@@ -13,13 +14,16 @@ fun MedicationEntity.applyLookup(result: LookupResult, onlyMissing: Boolean): Me
         incoming != SourceStatus.NOT_RUN && !(onlyMissing && current == SourceStatus.OK)
 
     var m = this
+    fun keepingFormulas(incoming: List<Ingredient>): List<Ingredient> {
+        val stored = m.ingredients.associateBy { it.name.lowercase() }
+        return incoming.map { i -> if (i.formula == null) i.copy(formula = stored[i.name.lowercase()]?.formula) else i }
+    }
+    if (result.fromLabel && result.ingredients.isNotEmpty() && !(onlyMissing && m.ingredients.isNotEmpty())) {
+        m = m.copy(ingredients = keepingFormulas(result.ingredients))
+    }
     if (take(m.rxnormStatus, result.rxnorm)) {
         m = if (result.rxnorm == SourceStatus.OK) {
-            val stored = m.ingredients.associateBy { it.name.lowercase() }
-            val ingredients = result.ingredients.map { i ->
-                if (i.formula == null) i.copy(formula = stored[i.name.lowercase()]?.formula) else i
-            }
-            m.copy(rxcui = result.rxcui, ingredients = ingredients, rxnormStatus = SourceStatus.OK)
+            m.copy(rxcui = result.rxcui, ingredients = keepingFormulas(result.ingredients), rxnormStatus = SourceStatus.OK)
         } else {
             m.copy(rxnormStatus = result.rxnorm)
         }

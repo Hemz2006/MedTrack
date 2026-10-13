@@ -132,4 +132,29 @@ class MealCheckerTest {
         assertEquals(2, logs().filter { it.medicationId == dinnerId }.size)
         assertEquals(LocalDate.parse("2026-10-14"), logs().maxByOrNull { it.dueAt }!!.forDate)
     }
+
+    @Test fun breakfastMealLeavesDinnerFallbackInPlace() = runBlocking {
+        val med = db.medicationDao().get(medId)!!
+        db.medicationDao().update(
+            med.copy(
+                schedule = med.schedule.copy(
+                    rules = listOf(
+                        ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)),
+                        ScheduleRule.AfterMeal(MealType.DINNER, 0, LocalTime.of(22, 0)),
+                    ),
+                ),
+            ),
+        )
+        meals = listOf(Meal(at("2026-10-13T08:10"), MealType.BREAKFAST))
+        checker.check()
+        assertEquals(listOf("meal:BREAKFAST"), logs().map { it.slot })
+        // The 10:00 breakfast fallback is gone; dinner's 22:00 fallback still rings.
+        now = at("2026-10-13T08:45"); engine.sync()
+        now = at("2026-10-13T22:00"); engine.sync()
+        assertEquals(listOf("meal:BREAKFAST", "meal:DINNER"), logs().sortedBy { it.dueAt }.map { it.slot })
+        // Dinner logged after its fallback rang adds nothing more.
+        meals = meals!! + Meal(at("2026-10-13T21:00"), MealType.DINNER)
+        now = at("2026-10-13T22:05"); checker.check()
+        assertEquals(2, logs().size)
+    }
 }

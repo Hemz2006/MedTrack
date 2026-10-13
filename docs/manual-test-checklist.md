@@ -12,6 +12,12 @@ Install: `adb install -r app/build/outputs/apk/debug/app-debug.apk` (USB debuggi
 - [ ] Camera photo and gallery photo both appear (right way up) in the list, Today and the alarm.
 - [ ] Edit a medication, replace its photo, then save. The old photo is gone and the new one shows.
 
+## Indian brands, several schedules and photos
+- [ ] Type "dolo" in "Name on the pack": Dolo 650 Tablet appears with "Paracetamol (650mg)". Picking it fills the generic name and ingredients, and then the formula and "Used for" load.
+- [ ] A brand that isn't listed (e.g. Mecmaxol): type the composition ("Calcium carbonate 500mg + Calcitriol 0.25mcg"), tap Look up info, save. Next time, typing "mecm" suggests it under "From your medications".
+- [ ] Add "after breakfast" and "after dinner" to one medication (Add another time or meal). Today shows both doses separately; taking breakfast doesn't hide dinner.
+- [ ] Add three photos from the gallery. Detail shows them as a swipeable gallery; "Make main" changes the photo in lists and on the alarm.
+
 ## Reminders
 - [ ] Daily time 2 minutes from now: the alarm rings with sound on the lock screen, full screen, showing photo, dose and notes.
 - [ ] Taken from the notification: the notification clears; Today shows Taken; History shows it.

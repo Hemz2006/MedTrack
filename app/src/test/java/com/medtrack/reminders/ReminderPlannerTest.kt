@@ -22,7 +22,7 @@ class ReminderPlannerTest {
         lastScan: String,
         now: String,
         pending: List<PendingDose> = emptyList(),
-        handled: Map<Long, Set<LocalDate>> = emptyMap(),
+        handled: Map<SlotKey, Set<LocalDate>> = emptyMap(),
     ) = planScan(meds, handled, pending, at(lastScan), at(now), zone)
 
     @Test fun nothingDueSchedulesNextDose() {
@@ -72,12 +72,34 @@ class ReminderPlannerTest {
 
     @Test fun mealFallbackSkipsHandledDays() {
         val meal = MedSchedule(1, Schedule(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)), LocalDate.parse("2026-10-01")))
-        val handled = mapOf(1L to setOf(LocalDate.parse("2026-10-13")))
+        val handled = mapOf((1L to "meal:BREAKFAST") to setOf(LocalDate.parse("2026-10-13")))
         val p = plan(listOf(meal), "2026-10-13T09:00", "2026-10-13T10:00", handled = handled)
         assertEquals(emptyList<NewDose>(), p.newDoses)
         assertEquals(at("2026-10-14T10:00"), p.nextWake)
         val unhandled = plan(listOf(meal), "2026-10-13T09:00", "2026-10-13T10:00")
-        assertEquals(listOf(NewDose(1, at("2026-10-13T10:00"), DoseTrigger.FALLBACK)), unhandled.newDoses)
+        assertEquals(listOf(NewDose(1, at("2026-10-13T10:00"), DoseTrigger.FALLBACK, "meal:BREAKFAST")), unhandled.newDoses)
+    }
+
+    @Test fun eachMealRuleHasItsOwnHandledDays() {
+        val rules = listOf(
+            ScheduleRule.AfterMeal(MealType.BREAKFAST, 0, LocalTime.of(10, 0)),
+            ScheduleRule.AfterMeal(MealType.DINNER, 0, LocalTime.of(22, 0)),
+        )
+        val med = MedSchedule(1, Schedule(rules, LocalDate.parse("2026-10-01")))
+        // Breakfast already handled today: its 10:00 fallback is skipped, dinner's 22:00 still comes.
+        val handled = mapOf((1L to "meal:BREAKFAST") to setOf(LocalDate.parse("2026-10-13")))
+        val p = plan(listOf(med), "2026-10-13T09:00", "2026-10-13T22:00", handled = handled)
+        assertEquals(listOf(NewDose(1, at("2026-10-13T22:00"), DoseTrigger.FALLBACK, "meal:DINNER")), p.newDoses)
+    }
+
+    @Test fun mixedRulesAllProduceDoses() {
+        val rules = listOf(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0))), ScheduleRule.AfterMeal(MealType.DINNER, 0, LocalTime.of(22, 0)))
+        val med = MedSchedule(1, Schedule(rules, LocalDate.parse("2026-10-01")))
+        val morning = plan(listOf(med), "2026-10-13T07:00", "2026-10-13T08:00")
+        assertEquals(listOf(NewDose(1, at("2026-10-13T08:00"), DoseTrigger.SCHEDULE)), morning.newDoses)
+        assertEquals(at("2026-10-13T10:00"), morning.nextWake) // missed-check for 08:00
+        val evening = plan(listOf(med), "2026-10-13T21:00", "2026-10-13T22:00")
+        assertEquals(listOf(NewDose(1, at("2026-10-13T22:00"), DoseTrigger.FALLBACK, "meal:DINNER")), evening.newDoses)
     }
 
     @Test fun noMedicationsNoWake() {

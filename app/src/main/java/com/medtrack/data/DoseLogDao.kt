@@ -20,8 +20,8 @@ interface DoseLogDao {
     @Query("SELECT * FROM dose_logs WHERE medicationId = :medicationId AND dueAt = :dueAt")
     suspend fun find(medicationId: Long, dueAt: Instant): DoseLogEntity?
 
-    @Query("SELECT EXISTS(SELECT 1 FROM dose_logs WHERE medicationId = :medicationId AND forDate = :forDate)")
-    suspend fun existsForDate(medicationId: Long, forDate: LocalDate): Boolean
+    @Query("SELECT EXISTS(SELECT 1 FROM dose_logs WHERE medicationId = :medicationId AND slot = :slot AND forDate = :forDate)")
+    suspend fun existsForSlot(medicationId: Long, slot: String, forDate: LocalDate): Boolean
 
     @Query("SELECT * FROM dose_logs WHERE id IN (:ids)")
     suspend fun byIds(ids: List<Long>): List<DoseLogEntity>
@@ -43,6 +43,9 @@ interface DoseLogDao {
 
     @Query("UPDATE dose_logs SET status = :status, actedAt = :actedAt, snoozedUntil = NULL WHERE id = :id")
     suspend fun setStatus(id: Long, status: DoseStatus, actedAt: Instant?)
+
+    @Query("DELETE FROM dose_logs WHERE id = :id")
+    suspend fun delete(id: Long)
 
     @Query("UPDATE dose_logs SET snoozedUntil = :until WHERE id = :id AND status = 'PENDING'")
     suspend fun snooze(id: Long, until: Instant)

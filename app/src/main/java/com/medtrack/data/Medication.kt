@@ -28,14 +28,24 @@ data class MedicationEntity(
     val rxnormStatus: SourceStatus = SourceStatus.NOT_RUN,
     val pubchemStatus: SourceStatus = SourceStatus.NOT_RUN,
     val medlineStatus: SourceStatus = SourceStatus.NOT_RUN,
-    val photoPath: String? = null,
+    /** Photo file paths; the first is the one shown in lists, notifications and alarms. */
+    val photos: List<String> = emptyList(),
     val active: Boolean = true,
     val schedule: Schedule,
     val createdAt: Instant,
 )
 
-fun MedicationEntity.displayName(): String =
-    brandName?.takeIf { it.isNotBlank() }?.let { "$it ($genericName)" } ?: genericName
+val MedicationEntity.coverPhoto: String? get() = photos.firstOrNull()
+
+/** The name on the pack: the brand when there is one, otherwise the generic name. */
+val MedicationEntity.title: String
+    get() = brandName?.takeIf { it.isNotBlank() } ?: genericName
+
+/** The generic name when [title] is the brand; null when there is nothing more to say. */
+val MedicationEntity.subtitle: String?
+    get() = genericName.takeIf { it.isNotBlank() && title != genericName }
+
+fun MedicationEntity.displayName(): String = subtitle?.let { "$title ($it)" } ?: title
 
 fun newMedication(today: LocalDate, now: Instant) = MedicationEntity(
     genericName = "",

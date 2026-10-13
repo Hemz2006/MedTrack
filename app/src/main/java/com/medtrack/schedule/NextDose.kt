@@ -10,21 +10,31 @@ import java.time.ZoneId
 private const val MAX_DAYS = 400
 
 /**
- * The first dose strictly after [after], or null when the schedule has no more doses.
+ * The first dose of [rule] strictly after [after], or null when it has no more doses within [schedule]'s dates.
  * Doses whose local date is in [skipDates] are skipped. For [ScheduleRule.AfterMeal]
  * this is the fallback time; meal-triggered doses come from [mealTriggeredDose].
  */
-fun nextDose(schedule: Schedule, after: Instant, zone: ZoneId, skipDates: Set<LocalDate> = emptySet()): Instant? =
-    when (val rule = schedule.rule) {
-        is ScheduleRule.DailyTimes -> nextOnDays(schedule, after, zone, skipDates, rule.times) { true }
-        is ScheduleRule.Weekdays -> nextOnDays(schedule, after, zone, skipDates, rule.times) { it.dayOfWeek in rule.days }
-        is ScheduleRule.AfterMeal -> nextOnDays(schedule, after, zone, skipDates, listOf(rule.fallbackTime)) { true }
-        is ScheduleRule.EveryNHours -> nextInterval(schedule, rule, after, zone, skipDates)
-    }
+fun nextDose(
+    schedule: Schedule,
+    rule: ScheduleRule,
+    after: Instant,
+    zone: ZoneId,
+    skipDates: Set<LocalDate> = emptySet(),
+): Instant? = when (rule) {
+    is ScheduleRule.DailyTimes -> nextOnDays(schedule, after, zone, skipDates, rule.times) { true }
+    is ScheduleRule.Weekdays -> nextOnDays(schedule, after, zone, skipDates, rule.times) { it.dayOfWeek in rule.days }
+    is ScheduleRule.AfterMeal -> nextOnDays(schedule, after, zone, skipDates, listOf(rule.fallbackTime)) { true }
+    is ScheduleRule.EveryNHours -> nextInterval(schedule, rule, after, zone, skipDates)
+}
 
-/** All doses in (from, to]. */
+/** The first dose of any of the schedule's rules strictly after [after]. */
+fun nextDose(schedule: Schedule, after: Instant, zone: ZoneId, skipDates: Set<LocalDate> = emptySet()): Instant? =
+    schedule.rules.mapNotNull { nextDose(schedule, it, after, zone, skipDates) }.minOrNull()
+
+/** All doses of [rule] in (from, to]. */
 fun dosesBetween(
     schedule: Schedule,
+    rule: ScheduleRule,
     from: Instant,
     to: Instant,
     zone: ZoneId,
@@ -32,12 +42,16 @@ fun dosesBetween(
 ): List<Instant> = buildList {
     var cursor = from
     while (true) {
-        val next = nextDose(schedule, cursor, zone, skipDates) ?: break
+        val next = nextDose(schedule, rule, cursor, zone, skipDates) ?: break
         if (next > to) break
         add(next)
         cursor = next
     }
 }
+
+/** All doses of every rule in (from, to], in time order; rules that land on the same instant give one dose. */
+fun dosesBetween(schedule: Schedule, from: Instant, to: Instant, zone: ZoneId): List<Instant> =
+    schedule.rules.flatMap { dosesBetween(schedule, it, from, to, zone) }.distinct().sorted()
 
 private fun nextOnDays(
     schedule: Schedule,

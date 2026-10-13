@@ -62,4 +62,13 @@ class LookupMergeTest {
         assertEquals(FAILED, m.rxnormStatus)
         assertEquals(full.ingredients, m.ingredients)
     }
+
+    @Test fun packIngredientsApplyEvenWhenRxNormFindsNothing() {
+        val label = listOf(Ingredient("Mecobalamin", "500mcg"))
+        val result = LookupResult(ingredients = label, rxnorm = com.medtrack.data.SourceStatus.NOT_FOUND, fromLabel = true)
+        assertEquals(label, blank.applyLookup(result, onlyMissing = false).ingredients)
+        // A retry doesn't overwrite ingredients the user already has.
+        val edited = blank.copy(ingredients = listOf(Ingredient("Methylcobalamin", "500mcg")))
+        assertEquals(edited.ingredients, edited.applyLookup(result, onlyMissing = true).ingredients)
+    }
 }

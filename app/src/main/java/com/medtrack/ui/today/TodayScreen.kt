@@ -1,26 +1,50 @@
 package com.medtrack.ui.today
 
+import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ListItem
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -31,12 +55,14 @@ import com.medtrack.AppContainer
 import com.medtrack.data.DoseStatus
 import com.medtrack.data.displayName
 import com.medtrack.health.HealthStatus
-import com.medtrack.schedule.ScheduleRule
-import com.medtrack.ui.common.PhotoThumb
-import com.medtrack.ui.common.ScreenScaffold
-import com.medtrack.ui.common.TIME
+import com.medtrack.reminders.UndoTarget
+import com.medtrack.schedule.hasMealRule
 import com.medtrack.ui.common.containerViewModel
 import com.medtrack.ui.settings.readSetupStatus
+import com.medtrack.ui.theme.LabelShape
+import com.medtrack.ui.theme.medColors
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -45,29 +71,46 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+data class TodayState(val items: List<TodayItem>, val hasMedications: Boolean, val now: Instant, val zone: ZoneId) {
+    val date: LocalDate get() = now.atZone(zone).toLocalDate()
+}
 
 class TodayViewModel(c: AppContainer) : ViewModel() {
     private val ticker = flow { while (true) { emit(Unit); delay(30_000) } }
-    val items = combine(
+    val state = combine(
         c.db.medicationDao().observeAll(),
         c.db.doseLogDao().observeSince(Instant.now().minus(Duration.ofDays(2))),
         ticker,
-    ) { meds, logs, _ -> buildToday(meds, logs, Instant.now(), ZoneId.systemDefault()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    ) { meds, logs, _ ->
+        val now = Instant.now()
+        val zone = ZoneId.systemDefault()
+        TodayState(buildToday(meds, logs, now, zone), meds.isNotEmpty(), now, zone)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
+private val DAY_HEADING: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH)
+
 @Composable
-fun TodayScreen(c: AppContainer, onOpenSettings: () -> Unit) {
+fun TodayScreen(
+    c: AppContainer,
+    onOpenSettings: () -> Unit,
+    onAddMedication: () -> Unit,
+    onOpenDetails: (Long) -> Unit,
+) {
     val vm = containerViewModel { TodayViewModel(c) }
-    val items by vm.items.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var resumes by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumes++ }
     var warnings by remember { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(resumes) {
         val status = readSetupStatus(context, c.health)
-        val hasMealMeds = c.db.medicationDao().active().any { it.schedule.rule is ScheduleRule.AfterMeal }
+        val hasMealMeds = c.db.medicationDao().active().any { it.schedule.hasMealRule }
         warnings = buildList {
             if (!status.notifications || !status.exactAlarms) add("Reminders may not ring. Tap to finish setup in Settings.")
             if (hasMealMeds && status.health != HealthStatus.CONNECTED) {
@@ -75,66 +118,124 @@ fun TodayScreen(c: AppContainer, onOpenSettings: () -> Unit) {
             }
         }
     }
-    var acting by remember { mutableStateOf<TodayItem?>(null) }
+    var sheetItem by remember { mutableStateOf<TodayItem?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
-    ScreenScaffold(title = "Today", isTab = true) { padding ->
-        LazyColumn(Modifier.padding(padding)) {
-            items(warnings) { warning ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clickable(onClick = onOpenSettings),
-                ) { Text(warning, Modifier.padding(12.dp)) }
+    /** Records the choice at once, then offers Undo. */
+    fun record(item: TodayItem, status: DoseStatus) {
+        scope.launch {
+            // The write runs in the app scope so leaving the screen can't cancel it half way.
+            val target = try {
+                c.appScope.async { act(c, item, status) }.await()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("MedTrack", "Recording a dose failed", e)
+                null
+            } ?: return@launch
+            snackbar.currentSnackbarData?.dismiss()
+            val verb = if (status == DoseStatus.TAKEN) "taken" else "skipped"
+            val result = snackbar.showSnackbar("${item.medication.displayName()} $verb", actionLabel = "Undo", duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) c.appScope.launch { c.engine.undo(target.logId, target.previous) }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
+        contentWindowInsets = WindowInsets.statusBars,
+    ) { padding ->
+        val s = state ?: return@Scaffold
+        val groups = remember(s) { groupToday(s.items, s.zone) }
+        // LazyColumn index of each dose: its group header if it opens the group, so the time shows too.
+        val scrollIndex = remember(groups, warnings) {
+            buildMap {
+                var index = warnings.size
+                groups.forEach { group ->
+                    val header = index++
+                    group.items.forEachIndexed { i, item -> put(item.stableKey, if (i == 0) header else index); index++ }
+                }
             }
-            val list = items
-            if (list != null && list.isEmpty()) item { Text("Nothing scheduled for today.", Modifier.padding(16.dp)) }
-            items(list.orEmpty(), key = { it.key }) { item ->
-                ListItem(
-                    leadingContent = { PhotoThumb(item.medication.photoPath, item.medication.genericName, 48.dp) },
-                    headlineContent = { Text(item.medication.displayName()) },
-                    supportingContent = {
-                        val time = TIME.format(item.dueAt.atZone(ZoneId.systemDefault()))
-                        Text(item.mealHint?.let { "$it · by $time" } ?: time)
-                    },
-                    trailingContent = { Text(statusLabel(item), color = statusColor(item.status)) },
-                    modifier = Modifier.clickable { acting = item },
-                )
+        }
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            Text(
+                DAY_HEADING.format(s.date),
+                style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp).semantics { heading() },
+            )
+            if (s.items.isNotEmpty()) {
+                BlisterStrip(s.items, s.now, s.zone, onTap = { item ->
+                    scrollIndex[item.stableKey]?.let { scope.launch { listState.animateScrollToItem(it) } }
+                })
+            }
+            HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.medColors.foil)
+            LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+                items(warnings) { warning -> SetupWarning(warning, onOpenSettings) }
+                if (s.items.isEmpty()) {
+                    item(key = "empty") { EmptyToday(s.hasMedications, onAddMedication) }
+                }
+                groups.forEach { group ->
+                    val dueNow = group.isDueNow(s.now)
+                    item(key = group.key) { GroupHeader(group, dueNow) }
+                    items(group.items, key = { it.stableKey }) { item ->
+                        DoseRow(
+                            item, s.now, s.zone, dueNow,
+                            onTake = { record(item, DoseStatus.TAKEN) },
+                            onMore = { sheetItem = item },
+                        )
+                    }
+                }
             }
         }
     }
 
-    acting?.let { item ->
-        AlertDialog(
-            onDismissRequest = { acting = null },
-            title = { Text(item.medication.displayName()) },
-            text = { Text("Due ${TIME.format(item.dueAt.atZone(ZoneId.systemDefault()))}" + (item.medication.notes?.let { "\n$it" } ?: "")) },
-            confirmButton = { TextButton(onClick = { act(c, item, DoseStatus.TAKEN); acting = null }) { Text("Taken") } },
-            dismissButton = { TextButton(onClick = { act(c, item, DoseStatus.SKIPPED); acting = null }) { Text("Skip") } },
+    sheetItem?.let { item ->
+        DoseSheet(
+            item,
+            state?.zone ?: ZoneId.systemDefault(),
+            onDismiss = { sheetItem = null },
+            onTake = { sheetItem = null; record(item, DoseStatus.TAKEN) },
+            onSkip = { sheetItem = null; record(item, DoseStatus.SKIPPED) },
+            onOpenDetails = { sheetItem = null; onOpenDetails(item.medication.id) },
         )
     }
 }
 
-private fun act(c: AppContainer, item: TodayItem, status: DoseStatus) {
-    c.appScope.launch {
-        val logId = item.logId
-        when {
-            logId == null -> c.engine.recordUpcoming(item.medication.id, item.dueAt, status)
-            status == DoseStatus.TAKEN -> c.engine.markTaken(logId)
-            else -> c.engine.markSkipped(logId)
+@Composable
+private fun SetupWarning(text: String, onClick: () -> Unit) {
+    Surface(
+        shape = LabelShape,
+        color = MaterialTheme.medColors.paperRaised,
+        border = BorderStroke(2.dp, MaterialTheme.medColors.amber),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable(role = Role.Button, onClickLabel = "Open Settings", onClick = onClick),
+    ) {
+        Row(Modifier.heightIn(min = 48.dp).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Warning, contentDescription = "Warning", tint = MaterialTheme.medColors.ink)
+            Spacer(Modifier.width(12.dp))
+            Text(text, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
 
-private fun statusLabel(item: TodayItem): String = when (item.status) {
-    null -> "Upcoming"
-    DoseStatus.PENDING -> item.snoozedUntil?.let { "Snoozed to ${TIME.format(it.atZone(ZoneId.systemDefault()))}" } ?: if (item.dueAt > java.time.Instant.now()) "Upcoming" else "Due now"
-    DoseStatus.TAKEN -> "Taken"
-    DoseStatus.SKIPPED -> "Skipped"
-    DoseStatus.MISSED -> "Missed"
+@Composable
+private fun EmptyToday(hasMedications: Boolean, onAddMedication: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (hasMedications) {
+            Text("No doses scheduled today.", style = MaterialTheme.typography.bodyLarge)
+        } else {
+            Text("Add your first medication to see today's doses here.", style = MaterialTheme.typography.bodyLarge)
+            Button(onClick = onAddMedication, modifier = Modifier.heightIn(min = 48.dp)) { Text("Add medication") }
+        }
+    }
 }
 
-@Composable
-private fun statusColor(status: DoseStatus?) = when (status) {
-    DoseStatus.TAKEN -> MaterialTheme.colorScheme.primary
-    DoseStatus.MISSED, DoseStatus.PENDING -> MaterialTheme.colorScheme.error
-    else -> MaterialTheme.colorScheme.outline
+/** Takes or skips a dose; returns what undo needs, or null when nothing changed. */
+private suspend fun act(c: AppContainer, item: TodayItem, status: DoseStatus): UndoTarget? {
+    val logId = item.logId ?: return c.engine.recordUpcoming(item.medication.id, item.dueAt, status, item.slot)
+    val previous = item.status ?: return null
+    if (previous == status) return null
+    if (status == DoseStatus.TAKEN) c.engine.markTaken(logId) else c.engine.markSkipped(logId)
+    return UndoTarget(logId, previous)
 }

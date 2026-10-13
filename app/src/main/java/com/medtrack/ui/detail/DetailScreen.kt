@@ -1,21 +1,31 @@
 package com.medtrack.ui.detail
 
+import com.medtrack.data.subtitle
+import com.medtrack.data.title
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,23 +34,38 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medtrack.AppContainer
-import com.medtrack.data.DoseStatus
+import com.medtrack.data.DoseLogEntity
 import com.medtrack.data.DoseTrigger
 import com.medtrack.data.MedicationEntity
+import com.medtrack.data.SourceStatus
 import com.medtrack.data.displayName
 import com.medtrack.lookup.applyLookup
 import com.medtrack.schedule.describe
-import com.medtrack.ui.common.DAY_TIME
-import com.medtrack.ui.common.PhotoThumb
+import com.medtrack.ui.common.Capsule
+import com.medtrack.ui.common.PhotoGallery
 import com.medtrack.ui.common.ScreenScaffold
+import com.medtrack.ui.common.TIME
+import com.medtrack.ui.common.TextTag
+import com.medtrack.ui.theme.LabelShape
+import com.medtrack.ui.theme.medColors
+import com.medtrack.ui.theme.tabular
+import com.medtrack.ui.today.CapsuleState
+import com.medtrack.ui.today.capsuleState
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Unit) {
     val med by remember(id) { c.db.medicationDao().observe(id) }.collectAsStateWithLifecycle(null)
@@ -49,6 +74,8 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
     var refreshing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val m = med ?: return
+    val zone = ZoneId.systemDefault()
+    val days = remember(logs) { historyByDay(logs, LocalDate.now(zone), zone) }
 
     ScreenScaffold(
         title = m.displayName(),
@@ -56,48 +83,40 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
         onBack = onBack,
         actions = { IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") } },
     ) { padding ->
-        LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { PhotoThumb(m.photoPath, m.genericName, 160.dp) }
-            item { Info(m) }
+        LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            if (m.photos.isNotEmpty()) item { PhotoGallery(m.photos, m.title) }
+            item { LabelBlock(m) }
+            item { MyNotesAndSchedule(m) }
             item {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { c.appScope.launch { c.medications.setActive(id, !m.active) } }) {
-                        Text(if (m.active) "Pause" else "Resume")
-                    }
-                    OutlinedButton(
-                        enabled = !refreshing,
-                        onClick = {
-                            scope.launch {
-                                refreshing = true
-                                try {
-                                    val result = c.lookup.lookup(m.genericName, m.rxcui)
-                                    c.db.medicationDao().get(id)?.let { c.medications.save(it.applyLookup(result, onlyMissing = false)) }
-                                } catch (e: kotlinx.coroutines.CancellationException) {
-                                    throw e
-                                } catch (e: Exception) {
-                                    android.util.Log.e("MedTrack", "Refresh info failed", e)
-                                } finally {
-                                    refreshing = false
-                                }
+                Actions(
+                    m,
+                    refreshing = refreshing,
+                    onTogglePause = { c.appScope.launch { c.medications.setActive(id, !m.active) } },
+                    onRefresh = {
+                        scope.launch {
+                            refreshing = true
+                            try {
+                                val result = c.lookup.lookupFor(m.genericName, m.ingredients, m.rxcui)
+                                c.db.medicationDao().get(id)?.let { c.medications.save(it.applyLookup(result, onlyMissing = false)) }
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                android.util.Log.e("MedTrack", "Refresh info failed", e)
+                            } finally {
+                                refreshing = false
                             }
-                        },
-                    ) { Text(if (refreshing) "Refreshing…" else "Refresh info") }
-                    OutlinedButton(onClick = { confirmDelete = true }) { Text("Delete") }
-                }
-            }
-            item { Text("History", style = MaterialTheme.typography.titleMedium) }
-            if (logs.isEmpty()) item { Text("No doses recorded yet.") }
-            items(logs, key = { it.id }) { log ->
-                ListItem(
-                    headlineContent = { Text(DAY_TIME.format(log.dueAt.atZone(ZoneId.systemDefault()))) },
-                    supportingContent = {
-                        Text(when (log.trigger) { DoseTrigger.SCHEDULE -> "Scheduled"; DoseTrigger.MEAL -> "After a meal"; DoseTrigger.FALLBACK -> "Meal fallback" })
+                        }
                     },
-                    trailingContent = {
-                        Text(when (log.status) { DoseStatus.PENDING -> "Due"; DoseStatus.TAKEN -> "Taken"; DoseStatus.SKIPPED -> "Skipped"; DoseStatus.MISSED -> "Missed" })
-                    },
+                    onDelete = { confirmDelete = true },
                 )
             }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Heading("History")
+                    if (days.isEmpty()) Text("No doses recorded yet.") else Legend()
+                }
+            }
+            items(days, key = { it.date.toString() }) { day -> HistoryDayRow(day, zone) }
         }
     }
 
@@ -111,7 +130,7 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
                     confirmDelete = false
                     c.appScope.launch { c.medications.delete(id) }
                     onBack()
-                }) { Text("Delete") }
+                }) { Text("Delete", color = MaterialTheme.medColors.missed) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
@@ -119,28 +138,145 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
 }
 
 @Composable
-private fun Info(m: MedicationEntity) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(m.genericName, style = MaterialTheme.typography.titleLarge)
-        if (!m.active) Text("Paused", color = MaterialTheme.colorScheme.error)
-        m.brandName?.let { Text("Brand: $it") }
-        m.doseText?.let { Text("Dose: $it") }
-        if (m.ingredients.isNotEmpty()) {
-            Text("Active ingredients", style = MaterialTheme.typography.titleSmall)
-            m.ingredients.forEach { i ->
-                Text("• " + listOfNotNull(i.name, i.strength, i.formula?.let { "($it)" }).joinToString(" "))
+private fun Heading(text: String) =
+    Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+
+/** The dispensing label: what the medication is and what it is for. */
+@Composable
+private fun LabelBlock(m: MedicationEntity) {
+    val colors = MaterialTheme.medColors
+    Surface(shape = LabelShape, color = colors.paperRaised, border = BorderStroke(1.dp, colors.foil), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(m.title, style = MaterialTheme.typography.titleLarge)
+                listOfNotNull(m.subtitle, m.doseText).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }?.let {
+                    Text(it, style = MaterialTheme.typography.bodyLarge, color = colors.inkMuted)
+                }
+                if (!m.active) TextTag("Paused", colors.inkMuted, Modifier.padding(top = 4.dp))
+            }
+            if (m.ingredients.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    m.ingredients.forEach { i ->
+                        Column {
+                            Text(listOfNotNull(i.name, i.strength).joinToString(" "), style = MaterialTheme.typography.bodyLarge)
+                            i.formula?.let { Text(it, style = MaterialTheme.typography.bodyMedium.tabular(), color = colors.inkMuted) }
+                        }
+                    }
+                }
+            }
+            m.usedFor?.let {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Heading("Used for")
+                    Text(it, style = MaterialTheme.typography.bodyLarge)
+                    Text("General information, not medical advice.", style = MaterialTheme.typography.bodySmall, color = colors.inkMuted)
+                }
+            }
+            sourceNote(m)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.inkMuted) }
+        }
+    }
+}
+
+private fun sourceNote(m: MedicationEntity): String? = listOfNotNull(
+    "Ingredients from RxNorm".takeIf { m.rxnormStatus == SourceStatus.OK },
+    "formulas from PubChem".takeIf { m.pubchemStatus == SourceStatus.OK },
+    "usage from MedlinePlus".takeIf { m.medlineStatus == SourceStatus.OK },
+).joinToString(", ").ifEmpty { null }?.replaceFirstChar { it.uppercase() }?.plus(".")
+
+@Composable
+private fun MyNotesAndSchedule(m: MedicationEntity) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        m.notes?.takeIf { it.isNotBlank() }?.let {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Heading("My notes")
+                Text(it, style = MaterialTheme.typography.bodyLarge)
             }
         }
-        m.usedFor?.let {
-            Text("Used for", style = MaterialTheme.typography.titleSmall)
-            Text(it)
-            Text("General information, not medical advice.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Heading("Schedule")
+            Text(m.schedule.describe(), style = MaterialTheme.typography.bodyLarge)
         }
-        m.notes?.let {
-            Text("My notes", style = MaterialTheme.typography.titleSmall)
-            Text(it)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Actions(m: MedicationEntity, refreshing: Boolean, onTogglePause: () -> Unit, onRefresh: () -> Unit, onDelete: () -> Unit) {
+    val ink = BorderStroke(1.dp, MaterialTheme.medColors.inkMuted)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = onTogglePause, border = ink, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(if (m.active) "Pause" else "Resume")
         }
-        Text("Schedule", style = MaterialTheme.typography.titleSmall)
-        Text(m.schedule.describe())
+        OutlinedButton(enabled = !refreshing, onClick = onRefresh, border = ink, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(if (refreshing) "Refreshing…" else "Refresh info")
+        }
+        val missed = MaterialTheme.medColors.missed
+        OutlinedButton(
+            onClick = onDelete,
+            border = BorderStroke(1.dp, missed),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = missed),
+            modifier = Modifier.heightIn(min = 48.dp),
+        ) { Text("Delete") }
+    }
+}
+
+/** Sample capsules naming each state, so colour is never the only cue. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Legend() {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.clearAndSetSemantics { contentDescription = "Legend: filled with a tick is taken, dashed is skipped, struck through is missed" },
+    ) {
+        listOf(CapsuleState.TAKEN to "Taken", CapsuleState.SKIPPED to "Skipped", CapsuleState.MISSED to "Missed").forEach { (state, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Capsule(state, width = 12.dp, height = 18.dp)
+                Spacer(Modifier.width(4.dp))
+                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.medColors.inkMuted)
+            }
+        }
+    }
+}
+
+data class HistoryDay(val date: LocalDate, val label: String, val logs: List<DoseLogEntity>)
+
+private val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+
+/** Logs (newest first) grouped by local day: "Today", "Yesterday", then "Mon 12 Oct". Doses within a day run in time order. */
+fun historyByDay(logs: List<DoseLogEntity>, today: LocalDate, zone: ZoneId): List<HistoryDay> =
+    logs.groupBy { it.dueAt.atZone(zone).toLocalDate() }
+        .toSortedMap(compareByDescending { it })
+        .map { (date, dayLogs) ->
+            val label = when (date) {
+                today -> "Today"
+                today.minusDays(1) -> "Yesterday"
+                else -> DAY_LABEL.format(date)
+            }
+            HistoryDay(date, label, dayLogs.sortedBy { it.dueAt })
+        }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HistoryDayRow(day: HistoryDay, zone: ZoneId) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(day.label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.medColors.inkMuted, modifier = Modifier.semantics { heading() })
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            day.logs.forEach { log ->
+                val time = TIME.format(log.dueAt.atZone(zone))
+                val state = log.status.capsuleState()
+                val trigger = when (log.trigger) {
+                    DoseTrigger.SCHEDULE -> ""
+                    DoseTrigger.MEAL -> ", after a meal"
+                    DoseTrigger.FALLBACK -> ", meal fallback time"
+                }
+                Column(
+                    Modifier.widthIn(min = 48.dp).clearAndSetSemantics { contentDescription = "$time, ${state.spoken}$trigger" },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Capsule(state, width = 20.dp, height = 32.dp)
+                    Text(time, style = MaterialTheme.typography.labelMedium.tabular(), color = MaterialTheme.medColors.inkMuted)
+                }
+            }
+        }
     }
 }
