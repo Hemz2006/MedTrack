@@ -3,7 +3,9 @@ package com.medtrack.reminders
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.medtrack.container
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -11,7 +13,7 @@ import kotlinx.coroutines.launch
 
 private fun BroadcastReceiver.runAsync(block: suspend () -> Unit) {
     val pending = goAsync()
-    CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+    CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> Log.e("MedTrack", "Receiver work failed", e) }).launch {
         try {
             block()
         } finally {

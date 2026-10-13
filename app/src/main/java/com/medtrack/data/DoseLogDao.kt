@@ -16,6 +16,9 @@ interface DoseLogDao {
     @Query("SELECT * FROM dose_logs WHERE id = :id")
     suspend fun get(id: Long): DoseLogEntity?
 
+    @Query("SELECT * FROM dose_logs WHERE medicationId = :medicationId AND dueAt = :dueAt")
+    suspend fun find(medicationId: Long, dueAt: Instant): DoseLogEntity?
+
     @Query("SELECT * FROM dose_logs WHERE id IN (:ids)")
     suspend fun byIds(ids: List<Long>): List<DoseLogEntity>
 

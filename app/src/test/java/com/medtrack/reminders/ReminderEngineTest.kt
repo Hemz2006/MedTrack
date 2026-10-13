@@ -157,6 +157,28 @@ class ReminderEngineTest {
         assertEquals(DoseStatus.TAKEN, db.doseLogDao().since(Instant.EPOCH).single().status)
     }
 
+    @Test fun failingRingStillBooksNextAlarm() = runBlocking {
+        val throwing = object : DoseNotifier(context) {
+            override fun ring(items: List<RingItem>) = throw IllegalStateException("boom")
+        }
+        val failing = ReminderEngine(db.medicationDao(), db.doseLogDao(), AlarmScheduler(context), throwing, AppPrefs(context)) { Clock.fixed(now, zone) }
+        addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        now = at("2026-10-13T08:00")
+        runCatching { failing.sync() }
+        assertEquals(at("2026-10-13T10:00"), nextAlarm())
+    }
+
+    @Test fun upcomingChoiceWinsOverAlreadyRungDose() = runBlocking {
+        val id = addDaily("metformin", "08:00")
+        syncAt("2026-10-13T07:00")
+        syncAt("2026-10-13T08:00")
+        assertEquals(1, doseNotifications().size)
+        engine.recordUpcoming(id, at("2026-10-13T08:00"), DoseStatus.TAKEN)
+        assertEquals(DoseStatus.TAKEN, db.doseLogDao().since(Instant.EPOCH).single().status)
+        assertEquals(0, doseNotifications().size)
+    }
+
     @Test fun mealDoseDueNowRingsImmediately() = runBlocking {
         val id = addDaily("metformin", "21:00")
         syncAt("2026-10-13T09:00")

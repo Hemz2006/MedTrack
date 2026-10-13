@@ -27,7 +27,11 @@ class AlarmScheduler(private val context: Context) {
         if (canScheduleExact()) {
             // Alarm-clock alarms are exempt from Doze and survive aggressive OEM battery savers best.
             val show = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(at.toEpochMilli(), show), operation)
+            try {
+                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(at.toEpochMilli(), show), operation)
+            } catch (e: SecurityException) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), operation)
+            }
         } else {
             // Degraded: may ring late. Settings and Today show a warning until exact alarms are allowed.
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), operation)

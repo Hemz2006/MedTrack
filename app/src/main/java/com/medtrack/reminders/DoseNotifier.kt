@@ -15,7 +15,7 @@ import com.medtrack.data.PhotoStore
 data class RingItem(val logId: Long, val title: String, val text: String, val photoPath: String?)
 
 /** One alarm-style notification per due dose, each with Taken / Skip / Snooze. */
-class DoseNotifier(private val context: Context) {
+open class DoseNotifier(private val context: Context) {
     private val manager = context.getSystemService(NotificationManager::class.java)
 
     fun ensureChannel() {
@@ -34,7 +34,7 @@ class DoseNotifier(private val context: Context) {
         manager.createNotificationChannel(channel)
     }
 
-    fun ring(items: List<RingItem>) {
+    open fun ring(items: List<RingItem>) {
         if (items.isEmpty() || !manager.areNotificationsEnabled()) return
         items.forEachIndexed { index, item ->
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -42,7 +42,7 @@ class DoseNotifier(private val context: Context) {
                 .setContentTitle(item.title)
                 .setContentText(item.text.ifBlank { "Time to take your medication" })
                 .setStyle(NotificationCompat.BigTextStyle().bigText(item.text.ifBlank { "Time to take your medication" }))
-                .setLargeIcon(item.photoPath?.let { PhotoStore.decodeSampled(it, 256) })
+                .setLargeIcon(item.photoPath?.let { runCatching { PhotoStore.decodeSampled(it, 256) }.getOrNull() })
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
