@@ -1,8 +1,6 @@
 package com.medtrack.ui
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -15,7 +13,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -29,6 +26,7 @@ import com.medtrack.AppContainer
 import com.medtrack.ui.detail.DetailScreen
 import com.medtrack.ui.edit.EditMedicationScreen
 import com.medtrack.ui.meds.MedicationsScreen
+import com.medtrack.ui.settings.SettingsScreen
 import com.medtrack.ui.today.TodayScreen
 
 object Routes {
@@ -82,7 +80,11 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
             composable(Routes.MEDS) {
                 MedicationsScreen(c, onAdd = { nav.navigate(Routes.edit(0)) }, onOpen = { nav.navigate(Routes.detail(it)) })
             }
-            composable(Routes.SETTINGS) { Placeholder("Settings") }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(c, isSetup = !c.prefs.setupDone, onSetupDone = {
+                    nav.navigate(Routes.TODAY) { popUpTo(0) { inclusive = true } }
+                })
+            }
             composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
                 EditMedicationScreen(c, entry.arguments!!.getLong("id"), onDone = { nav.popBackStack() })
             }
@@ -92,9 +94,4 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
             }
         }
     }
-}
-
-@Composable
-private fun Placeholder(name: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("$name — coming soon") }
 }
