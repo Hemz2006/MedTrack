@@ -26,6 +26,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.medtrack.AppContainer
+import com.medtrack.ui.edit.EditMedicationScreen
 import com.medtrack.ui.meds.MedicationsScreen
 
 object Routes {
@@ -80,7 +81,9 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
                 MedicationsScreen(c, onAdd = { nav.navigate(Routes.edit(0)) }, onOpen = { nav.navigate(Routes.detail(it)) })
             }
             composable(Routes.SETTINGS) { Placeholder("Settings") }
-            composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { Placeholder("Edit") }
+            composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+                EditMedicationScreen(c, entry.arguments!!.getLong("id"), onDone = { nav.popBackStack() })
+            }
             composable(Routes.DETAIL, arguments = listOf(navArgument("id") { type = NavType.LongType })) { Placeholder("Detail") }
         }
     }
