@@ -17,7 +17,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 
-/** A database written by v1 of the app opens in v2 with every medication, photo and dose log intact. */
+/** A database written by v1 of the app opens in the current version with every medication, photo and dose log intact. */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
@@ -58,10 +58,11 @@ class MigrationTest {
     }
 
     @Test fun keepsMedicationsPhotosAndLogs() = runBlocking {
-        val db = Room.databaseBuilder(context, MedTrackDatabase::class.java, name).addMigrations(MIGRATION_1_2).allowMainThreadQueries().build()
+        val db = Room.databaseBuilder(context, MedTrackDatabase::class.java, name).addMigrations(MIGRATION_1_2, MIGRATION_2_3).allowMainThreadQueries().build()
         try {
             val pan = db.medicationDao().get(1)!!
             assertEquals("Pan 40", pan.brandName)
+            assertEquals(null, pan.form)
             assertEquals(listOf("/data/user/0/com.medtrack/files/photos/a.jpg"), pan.photos)
             assertEquals(listOf(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0))), pan.schedule.rules)
 

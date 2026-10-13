@@ -1,5 +1,6 @@
 package com.medtrack.reminders
 
+import com.medtrack.data.doseLine
 import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
 import android.graphics.Color.TRANSPARENT
@@ -112,7 +113,7 @@ private fun AlarmDose(c: AppContainer, log: DoseLogEntity, med: MedicationEntity
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (single) PhotoHeader(med.coverPhoto, med.title) else PhotoThumb(med.coverPhoto, med.title, 120.dp)
         Text(med.displayName(), style = MaterialTheme.typography.displaySmall)
-        med.doseText?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
+        med.doseLine?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
         Text("Due ${TIME.format(log.dueAt.atZone(ZoneId.systemDefault()))}", style = MaterialTheme.typography.titleMedium.tabular())
         med.notes?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
         AlarmPrimaryButton("Taken") { c.appScope.launch { c.engine.markTaken(log.id) } }

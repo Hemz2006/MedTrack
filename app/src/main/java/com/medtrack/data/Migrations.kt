@@ -42,6 +42,13 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/** v3: a medication's form (tablet, inhaler, nebuliser…). Existing medications start without one. */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE medications ADD COLUMN `form` TEXT")
+    }
+}
+
 private val json = Json { ignoreUnknownKeys = true }
 
 /** v1 stored one rule as `"rule": {...}`; v2 stores `"rules": [{...}]`. */

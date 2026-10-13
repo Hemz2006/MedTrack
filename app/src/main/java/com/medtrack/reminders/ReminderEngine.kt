@@ -1,5 +1,6 @@
 package com.medtrack.reminders
 
+import com.medtrack.data.doseLine
 import com.medtrack.data.AppPrefs
 import com.medtrack.data.DoseLogDao
 import com.medtrack.data.DoseLogEntity
@@ -149,7 +150,7 @@ class ReminderEngine(
                 notifier.ring(
                     ring.sortedBy { it.dueAt }.mapNotNull { log ->
                         medsById[log.medicationId]?.let { med ->
-                            RingItem(log.id, med.displayName(), listOfNotNull(med.doseText, med.notes).filter { it.isNotBlank() }.joinToString(" · "), med.coverPhoto)
+                            RingItem(log.id, med.displayName(), listOfNotNull(med.doseLine, med.notes?.takeIf { it.isNotBlank() }).joinToString(" · "), med.coverPhoto)
                         }
                     },
                 )

@@ -4,7 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [MedicationEntity::class, DoseLogEntity::class], version = 2, exportSchema = true)
+@Database(entities = [MedicationEntity::class, DoseLogEntity::class], version = 3, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class MedTrackDatabase : RoomDatabase() {
     abstract fun medicationDao(): MedicationDao

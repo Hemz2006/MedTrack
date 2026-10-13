@@ -128,7 +128,12 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
                     }
                 }
                 LookupStatus(med, state.lookingUp) { vm.lookUp(onlyMissing = true) }
-                OutlinedTextField(med.doseText.orEmpty(), { v -> vm.update { it.copy(doseText = v) } }, Modifier.fillMaxWidth(), label = { Text("Dose (e.g. 1 tablet)") }, singleLine = true, colors = fieldColors())
+                FormAndDose(
+                    form = med.form,
+                    dose = med.doseText.orEmpty(),
+                    onForm = { f -> vm.update { it.copy(form = f) } },
+                    onDose = { d -> vm.update { it.copy(doseText = d) } },
+                )
             }
 
             Section("What's in it") {

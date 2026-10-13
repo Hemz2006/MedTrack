@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.room.Room
 import com.medtrack.data.AppPrefs
 import com.medtrack.data.MIGRATION_1_2
+import com.medtrack.data.MIGRATION_2_3
 import com.medtrack.data.MedTrackDatabase
 import com.medtrack.data.MedicationRepository
 import com.medtrack.data.PhotoStore
@@ -27,7 +28,7 @@ import kotlinx.coroutines.SupervisorJob
 class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> Log.e("MedTrack", "Unhandled error in appScope", e) })
     val db: MedTrackDatabase = Room.databaseBuilder(context, MedTrackDatabase::class.java, "medtrack.db")
-        .addMigrations(MIGRATION_1_2)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
         .build()
     val prefs = AppPrefs(context)
     val photos = PhotoStore(context)
