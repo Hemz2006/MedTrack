@@ -1,10 +1,15 @@
 package com.medtrack.ui.today
 
+import com.medtrack.ui.theme.tabular
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.material3.LinearProgressIndicator
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -164,12 +169,7 @@ fun TodayScreen(
             }
         }
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (s.items.isNotEmpty()) DayProgressBar(s.items.progress())
-            Text(
-                DAY_HEADING.format(s.date),
-                style = MaterialTheme.typography.displaySmall,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp).semantics { heading() },
-            )
+            DayRing(s.date, s.items.progress(), hasDoses = s.items.isNotEmpty())
             if (s.items.isNotEmpty()) {
                 BlisterStrip(s.items, s.now, s.zone, onTap = { item ->
                     scrollIndex[item.stableKey]?.let { scope.launch { listState.animateScrollToItem(it) } }
@@ -237,24 +237,49 @@ private fun EmptyToday(hasMedications: Boolean, onAddMedication: () -> Unit) {
     }
 }
 
-/** "3 of 5 taken" with a bar that fills as doses are ticked; green when everything is taken. */
+/**
+ * The date inside a ring that fills as today's doses are taken: amber while some are left, green when all are.
+ * Beside it, the full date and "3 of 5 doses taken".
+ */
 @Composable
-private fun DayProgressBar(progress: DayProgress) {
+private fun DayRing(date: LocalDate, progress: DayProgress, hasDoses: Boolean) {
     val colors = MaterialTheme.medColors
-    val done = progress.total > 0 && progress.taken == progress.total
-    val label = if (done) "All ${progress.total} doses taken" else "${progress.taken} of ${progress.total} doses taken"
-    Column(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp).clearAndSetSemantics { contentDescription = label },
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+    val done = hasDoses && progress.taken == progress.total
+    val fill by animateFloatAsState(progress.fraction, animationSpec = tween(400), label = "day ring")
+    val status = when {
+        !hasDoses -> null
+        done -> "All ${progress.total} doses taken"
+        else -> "${progress.taken} of ${progress.total} doses taken"
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        LinearProgressIndicator(
-            progress = { progress.fraction },
-            modifier = Modifier.fillMaxWidth().height(8.dp),
-            color = if (done) colors.taken else colors.amber,
-            trackColor = colors.foil,
-            strokeCap = StrokeCap.Round,
-            drawStopIndicator = {},
-        )
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = if (done) colors.taken else colors.inkMuted)
+        Box(Modifier.size(112.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                progress = { if (hasDoses) fill else 0f },
+                modifier = Modifier.fillMaxSize(),
+                color = if (done) colors.taken else colors.amber,
+                trackColor = colors.foil,
+                strokeWidth = 8.dp,
+                strokeCap = StrokeCap.Round,
+                gapSize = 0.dp,
+            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(WEEKDAY.format(date), style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
+                Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.displaySmall.tabular(), color = colors.ink)
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                DAY_HEADING.format(date),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() },
+            )
+            status?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = if (done) colors.taken else colors.inkMuted) }
+        }
     }
 }
+
+private val WEEKDAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
