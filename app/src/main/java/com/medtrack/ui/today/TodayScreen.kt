@@ -1,5 +1,7 @@
 package com.medtrack.ui.today
 
+import com.medtrack.ui.common.MedAlert
+import com.medtrack.ui.common.AlertTone
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import kotlinx.coroutines.flow.flatMapLatest
@@ -130,14 +132,14 @@ fun TodayScreen(
     val context = LocalContext.current
     var resumes by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumes++ }
-    var warnings by remember { mutableStateOf(emptyList<String>()) }
+    var warnings by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     LaunchedEffect(resumes) {
         val status = readSetupStatus(context, c.health)
         val hasMealMeds = c.db.medicationDao().active().any { it.steps.hasMealRule }
         warnings = buildList {
-            if (!status.notifications || !status.exactAlarms) add("Reminders may not ring. Tap to finish setup in Settings.")
+            if (!status.notifications || !status.exactAlarms) add("Reminders may not ring" to "Finish setup in Settings so alarms can go off.")
             if (hasMealMeds && status.health != HealthStatus.CONNECTED) {
-                add("Health Connect isn't connected, so meal reminders will use their fallback times. Tap to fix.")
+                add("Meal reminders use their fallback times" to "Health Connect isn't connected, so logged meals can't trigger them.")
             }
         }
     }
@@ -165,7 +167,14 @@ fun TodayScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = {
+            SnackbarHost(snackbar) { data ->
+                MedAlert(
+                    if (data.visuals.message.endsWith("taken")) AlertTone.SUCCESS else AlertTone.NEUTRAL, data.visuals.message, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    actionLabel = data.visuals.actionLabel, onAction = { data.performAction() }, onDismiss = { data.dismiss() },
+                )
+            }
+        },
         contentWindowInsets = WindowInsets.statusBars,
     ) { padding ->
         val s = state ?: return@Scaffold
@@ -177,7 +186,14 @@ fun TodayScreen(
             DayControls(s.date, s.today, view, onDate = vm::showDate, onView = vm::setView)
             HorizontalDivider(color = MaterialTheme.medColors.foil)
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
-                if (s.isToday) items(warnings) { warning -> SetupWarning(warning, onOpenSettings) }
+                if (s.isToday) {
+                    items(warnings) { (title, detail) ->
+                        MedAlert(
+                            AlertTone.WARNING, title, Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            description = detail, actionLabel = "Fix", onAction = onOpenSettings,
+                        )
+                    }
+                }
                 if (s.items.isEmpty()) {
                     item(key = "empty") { EmptyDay(s.hasMedications, s.isToday, onAddMedication) }
                 }
@@ -212,23 +228,6 @@ fun TodayScreen(
             onSkip = { sheetItem = null; record(item, DoseStatus.SKIPPED) },
             onOpenDetails = { sheetItem = null; onOpenDetails(item.medication.id) },
         )
-    }
-}
-
-@Composable
-private fun SetupWarning(text: String, onClick: () -> Unit) {
-    Surface(
-        shape = LabelShape,
-        color = MaterialTheme.medColors.paperRaised,
-        border = BorderStroke(2.dp, MaterialTheme.medColors.amber),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable(role = Role.Button, onClickLabel = "Open Settings", onClick = onClick),
-    ) {
-        Row(Modifier.heightIn(min = 48.dp).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Warning, contentDescription = "Warning", tint = MaterialTheme.medColors.ink)
-            Spacer(Modifier.width(12.dp))
-            Text(text, style = MaterialTheme.typography.bodyLarge)
-        }
     }
 }
 

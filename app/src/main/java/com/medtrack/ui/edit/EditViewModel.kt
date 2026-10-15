@@ -61,6 +61,8 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
         }
     }
 
+    fun clearError() = _state.update { it.copy(error = null) }
+
     fun update(transform: (MedicationEntity) -> MedicationEntity) =
         _state.update { it.copy(med = transform(it.med), error = null) }
 

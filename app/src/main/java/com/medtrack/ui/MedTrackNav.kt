@@ -1,16 +1,14 @@
 package com.medtrack.ui
 
+import com.medtrack.ui.common.PillNavItem
+import com.medtrack.ui.common.PillNavigation
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -56,22 +54,17 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (tabs.any { it.route == route }) {
-                NavigationBar {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = route == tab.route,
-                            onClick = {
-                                nav.navigate(tab.route) {
-                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(tab.icon, null) },
-                            label = { Text(tab.label) },
-                        )
-                    }
-                }
+                PillNavigation(
+                    items = tabs.map { PillNavItem(it.route, it.label, it.icon) },
+                    selectedId = route,
+                    onSelect = { target ->
+                        nav.navigate(target) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
         },
     ) { padding ->

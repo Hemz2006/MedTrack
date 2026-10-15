@@ -1,5 +1,7 @@
 package com.medtrack.ui.edit
 
+import com.medtrack.ui.common.MedAlert
+import com.medtrack.ui.common.AlertTone
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -94,7 +96,7 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
             Modifier.padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            state.error?.let { Text(it, color = MaterialTheme.medColors.missed) }
+            state.error?.let { MedAlert(AlertTone.DANGER, it, onDismiss = vm::clearError) }
 
             Section("Medication") {
                 OutlinedTextField(
@@ -184,19 +186,20 @@ private fun LookupStatus(med: MedicationEntity, lookingUp: Boolean, onRetry: () 
     if (lookingUp) return
     val problems = buildList {
         when (med.rxnormStatus) {
-            SourceStatus.NOT_FOUND -> add("Couldn't find this name – check the spelling or enter details manually.")
-            SourceStatus.FAILED -> add("Not looked up yet – tap to retry")
+            SourceStatus.NOT_FOUND -> add("Couldn't find this name. Check the spelling or enter the details yourself." to null)
+            SourceStatus.FAILED -> add("Not looked up yet" to "The lookup needs an internet connection.")
             else -> Unit
         }
-        if (med.pubchemStatus == SourceStatus.FAILED) add("Formula lookup failed – tap to retry")
-        if (med.medlineStatus == SourceStatus.FAILED) add("Usage note lookup failed – tap to retry")
+        if (med.pubchemStatus == SourceStatus.FAILED) add("Formula lookup failed" to "PubChem didn't answer.")
+        if (med.medlineStatus == SourceStatus.FAILED) add("Usage note lookup failed" to "MedlinePlus didn't answer.")
     }
-    problems.forEach { message ->
-        if (message.endsWith("retry")) {
-            TextButton(onClick = onRetry) { Text(message, color = MaterialTheme.medColors.missed) }
-        } else {
-            Text(message, color = MaterialTheme.medColors.missed)
-        }
+    problems.forEach { (title, detail) ->
+        MedAlert(
+            if (detail == null) AlertTone.WARNING else AlertTone.DANGER, title,
+            description = detail,
+            actionLabel = if (detail == null) null else "Retry",
+            onAction = if (detail == null) null else onRetry,
+        )
     }
 }
 

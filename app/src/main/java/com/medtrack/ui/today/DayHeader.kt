@@ -15,11 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,38 +73,22 @@ internal fun DayControls(
     onView: (TodayView) -> Unit,
 ) {
     var picking by remember { mutableStateOf(false) }
-    var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onDate(date.minusDays(1)) }) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous day")
         }
-        TextButton(onClick = { picking = true }) {
-            Icon(Icons.Default.DateRange, null, Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(dayName(date, today))
+        TextButton(onClick = { picking = true }, modifier = Modifier.weight(1f, fill = false)) {
+            Text(dayName(date, today), maxLines = 1)
         }
         IconButton(onClick = { onDate(date.plusDays(1)) }, enabled = date < today) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next day")
         }
         Spacer(Modifier.weight(1f))
-        Box {
-            TextButton(onClick = { menu = true }) {
-                Text(view.label)
-                Icon(Icons.Default.ArrowDropDown, "Change view")
-            }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                TodayView.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label) },
-                        onClick = { menu = false; onView(option) },
-                    )
-                }
-            }
-        }
+        GooeyMenu(TodayView.entries, view, label = { it.label }, onSelect = onView)
     }
     if (picking) {
-        // History only: a date after today has nothing recorded yet, so it opens today.
-        DatePickDialog(date, onDismiss = { picking = false }) { picked -> picking = false; onDate(minOf(picked, today)) }
+        // History only: days after today have nothing recorded yet.
+        DatePickDialog(date, onDismiss = { picking = false }, maxDate = today) { picked -> picking = false; onDate(picked) }
     }
 }
 
