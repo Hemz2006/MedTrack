@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import com.medtrack.data.doseOn
 import com.medtrack.data.DoseLogEntity
 import com.medtrack.data.DoseStatus
 import com.medtrack.data.DoseTrigger
@@ -19,8 +20,8 @@ class TodayModelTest {
     private val zone = ZoneId.of("Asia/Kolkata")
     private fun at(s: String): Instant = LocalDateTime.parse(s).atZone(zone).toInstant()
     private val start = LocalDate.parse("2026-10-01")
-    private val daily = MedicationEntity(1, "metformin", schedule = Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(21, 0))), start), createdAt = Instant.EPOCH)
-    private val meal = MedicationEntity(2, "pantoprazole", schedule = Schedule(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)), start), createdAt = Instant.EPOCH)
+    private val daily = MedicationEntity(1, "metformin", steps = listOf(Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(21, 0))), start)), createdAt = Instant.EPOCH)
+    private val meal = MedicationEntity(2, "pantoprazole", steps = listOf(Schedule(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)), start)), createdAt = Instant.EPOCH)
 
     @Test fun mergesLogsAndUpcomingInTimeOrder() {
         val logs = listOf(DoseLogEntity(5, 1, at("2026-10-13T08:00"), DoseStatus.TAKEN, DoseTrigger.SCHEDULE, LocalDate.parse("2026-10-13")))
@@ -48,7 +49,7 @@ class TodayModelTest {
             ScheduleRule.AfterMeal(MealType.BREAKFAST, 0, LocalTime.of(10, 0)),
             ScheduleRule.AfterMeal(MealType.DINNER, 0, LocalTime.of(22, 0)),
         )
-        val twice = meal.copy(schedule = Schedule(rules, start))
+        val twice = meal.copy(steps = listOf(Schedule(rules, start)))
         val before = buildToday(listOf(twice), emptyList(), at("2026-10-13T07:00"), zone)
         assertEquals(listOf("After breakfast", "After dinner"), before.map { it.mealHint })
         assertEquals(listOf("meal:BREAKFAST", "meal:DINNER"), before.map { it.slot })
@@ -59,7 +60,7 @@ class TodayModelTest {
     }
 
     @Test fun lateMealDoseDueAfterMidnightDoesNotHandleNextDay() {
-        val dinner = MedicationEntity(3, "x", schedule = Schedule(ScheduleRule.AfterMeal(MealType.DINNER, 120, LocalTime.of(23, 0)), start), createdAt = Instant.EPOCH)
+        val dinner = MedicationEntity(3, "x", steps = listOf(Schedule(ScheduleRule.AfterMeal(MealType.DINNER, 120, LocalTime.of(23, 0)), start)), createdAt = Instant.EPOCH)
         val logs = listOf(DoseLogEntity(9, 3, at("2026-10-14T00:30"), DoseStatus.PENDING, DoseTrigger.MEAL, LocalDate.parse("2026-10-13"), slot = "meal:DINNER"))
         val items = buildToday(listOf(dinner), logs, at("2026-10-14T07:00"), zone)
         assertEquals(listOf(at("2026-10-14T00:30"), at("2026-10-14T23:00")), items.map { it.dueAt })
@@ -69,11 +70,11 @@ class TodayModelTest {
         val logs = listOf(
             DoseLogEntity(5, 1, at("2026-10-13T08:00"), DoseStatus.TAKEN, DoseTrigger.SCHEDULE, LocalDate.parse("2026-10-13")),
         )
-        val other = daily.copy(id = 4, genericName = "pan", schedule = Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0))), start))
+        val other = daily.copy(id = 4, genericName = "pan", steps = listOf(Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0))), start)))
         val logs2 = logs + DoseLogEntity(6, 4, at("2026-10-13T08:00"), DoseStatus.PENDING, DoseTrigger.SCHEDULE, LocalDate.parse("2026-10-13"))
         val items = buildToday(listOf(daily, other, meal), logs2, at("2026-10-13T08:05"), zone)
         val groups = groupToday(items, zone)
-        assertEquals(listOf("08:00", "After breakfast, by 10:00", "21:00"), groups.map { it.label })
+        assertEquals(listOf("8:00 AM", "After breakfast, by 10:00 AM", "9:00 PM"), groups.map { it.label })
         assertEquals(2, groups.first().items.size)
         assertEquals(listOf(true, false, false), groups.map { it.isDueNow(at("2026-10-13T08:05")) })
     }
@@ -92,5 +93,18 @@ class TodayModelTest {
     @Test fun recordedItemsCarryActedAt() {
         val logs = listOf(DoseLogEntity(5, 1, at("2026-10-13T08:00"), DoseStatus.TAKEN, DoseTrigger.SCHEDULE, LocalDate.parse("2026-10-13"), actedAt = at("2026-10-13T08:03")))
         assertEquals(at("2026-10-13T08:03"), buildToday(listOf(daily), logs, at("2026-10-13T12:00"), zone).first().actedAt)
+    }
+
+    @Test fun stepsSwitchTimesAndDoseOnTheirStartDay() {
+        val steps = listOf(
+            Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(14, 0), LocalTime.of(20, 0))), start, LocalDate.parse("2026-10-13")).copy(dose = "2 puffs"),
+            Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0))), LocalDate.parse("2026-10-14")).copy(dose = "1 puff"),
+        )
+        val taper = daily.copy(steps = steps, doseText = "usual")
+        assertEquals(3, buildToday(listOf(taper), emptyList(), at("2026-10-13T00:01"), zone).size)
+        assertEquals(listOf(at("2026-10-14T08:00")), buildToday(listOf(taper), emptyList(), at("2026-10-14T00:01"), zone).map { it.dueAt })
+        assertEquals("2 puffs", taper.doseOn(LocalDate.parse("2026-10-13")))
+        assertEquals("1 puff", taper.doseOn(LocalDate.parse("2026-10-14")))
+        assertEquals("usual", taper.doseOn(LocalDate.parse("2026-09-01"))) // before the course: the usual dose
     }
 }

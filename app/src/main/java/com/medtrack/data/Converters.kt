@@ -23,6 +23,6 @@ class Converters {
     @TypeConverter fun jsonToIngredients(value: String): List<Ingredient> = json.decodeFromString(ingredientList, value)
     @TypeConverter fun stringsToJson(value: List<String>): String = json.encodeToString(stringList, value)
     @TypeConverter fun jsonToStrings(value: String): List<String> = json.decodeFromString(stringList, value)
-    @TypeConverter fun scheduleToJson(value: Schedule): String = ScheduleJson.encode(value)
-    @TypeConverter fun jsonToSchedule(value: String): Schedule = ScheduleJson.decode(value)
+    @TypeConverter fun stepsToJson(value: List<Schedule>): String = ScheduleJson.encodeSteps(value)
+    @TypeConverter fun jsonToSteps(value: String): List<Schedule> = ScheduleJson.decodeSteps(value)
 }

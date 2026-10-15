@@ -1,6 +1,6 @@
 package com.medtrack.ui.detail
 
-import com.medtrack.data.doseLine
+import com.medtrack.data.doseLineOn
 import com.medtrack.data.subtitle
 import com.medtrack.data.title
 import androidx.compose.foundation.BorderStroke
@@ -50,7 +50,7 @@ import com.medtrack.data.MedicationEntity
 import com.medtrack.data.SourceStatus
 import com.medtrack.data.displayName
 import com.medtrack.lookup.applyLookup
-import com.medtrack.schedule.describe
+import com.medtrack.schedule.describeSteps
 import com.medtrack.ui.common.Capsule
 import com.medtrack.ui.common.PhotoGallery
 import com.medtrack.ui.common.ScreenScaffold
@@ -150,7 +150,7 @@ private fun LabelBlock(m: MedicationEntity) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(m.title, style = MaterialTheme.typography.titleLarge)
-                listOfNotNull(m.subtitle, m.doseLine).joinToString(" · ").ifEmpty { null }?.let {
+                listOfNotNull(m.subtitle, m.doseLineOn(java.time.LocalDate.now())).joinToString(" · ").ifEmpty { null }?.let {
                     Text(it, style = MaterialTheme.typography.bodyLarge, color = colors.inkMuted)
                 }
                 if (!m.active) TextTag("Paused", colors.inkMuted, Modifier.padding(top = 4.dp))
@@ -194,7 +194,7 @@ private fun MyNotesAndSchedule(m: MedicationEntity) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Heading("Schedule")
-            Text(m.schedule.describe(), style = MaterialTheme.typography.bodyLarge)
+            Text(m.steps.describeSteps(), style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

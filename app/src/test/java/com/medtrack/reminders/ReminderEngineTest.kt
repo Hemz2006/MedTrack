@@ -50,7 +50,7 @@ class ReminderEngineTest {
         db.medicationDao().insert(
             MedicationEntity(
                 genericName = name,
-                schedule = Schedule(ScheduleRule.DailyTimes(times.map(LocalTime::parse)), LocalDate.parse("2026-10-01")),
+                steps = listOf(Schedule(ScheduleRule.DailyTimes(times.map(LocalTime::parse)), LocalDate.parse("2026-10-01"))),
                 createdAt = now,
             ),
         )
@@ -130,7 +130,7 @@ class ReminderEngineTest {
         syncAt("2026-10-13T07:00")
         syncAt("2026-10-13T08:00")
         val med = db.medicationDao().get(id)!!
-        db.medicationDao().update(med.copy(schedule = med.schedule.copy(rules = listOf(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(20, 0)))))))
+        db.medicationDao().update(med.copy(steps = listOf(med.steps.single().copy(rules = listOf(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(20, 0))))))))
         syncAt("2026-10-13T08:05")
         assertEquals(1, db.doseLogDao().pending().size)
         assertEquals(1, doseNotifications().size)
@@ -261,5 +261,23 @@ class ReminderEngineTest {
         assertEquals(DoseStatus.PENDING, log.status)
         assertNull(log.actedAt)
         assertEquals(at("2026-10-13T10:00"), nextAlarm())
+    }
+
+    @Test fun nextStepRingsItsOwnTimesAndDose() = runBlocking {
+        db.medicationDao().insert(
+            MedicationEntity(
+                genericName = "budesonide",
+                steps = listOf(
+                    Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(20, 0))), LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-13")).copy(dose = "2 puffs"),
+                    Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(9, 0))), LocalDate.parse("2026-10-14")).copy(dose = "1 puff"),
+                ),
+                createdAt = now,
+            ),
+        )
+        syncAt("2026-10-13T21:00")
+        assertEquals(at("2026-10-14T09:00"), nextAlarm()) // not 08:00 or 20:00: step 2 has begun
+        syncAt("2026-10-14T09:00")
+        val text = doseNotifications().single().notification.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString()
+        assertEquals(true, "1 puff" in text)
     }
 }

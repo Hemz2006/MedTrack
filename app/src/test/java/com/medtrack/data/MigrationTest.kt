@@ -58,18 +58,18 @@ class MigrationTest {
     }
 
     @Test fun keepsMedicationsPhotosAndLogs() = runBlocking {
-        val db = Room.databaseBuilder(context, MedTrackDatabase::class.java, name).addMigrations(MIGRATION_1_2, MIGRATION_2_3).allowMainThreadQueries().build()
+        val db = Room.databaseBuilder(context, MedTrackDatabase::class.java, name).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).allowMainThreadQueries().build()
         try {
             val pan = db.medicationDao().get(1)!!
             assertEquals("Pan 40", pan.brandName)
             assertEquals(null, pan.form)
             assertEquals(listOf("/data/user/0/com.medtrack/files/photos/a.jpg"), pan.photos)
-            assertEquals(listOf(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0))), pan.schedule.rules)
+            assertEquals(listOf(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0))), pan.steps.single().rules)
 
             val metformin = db.medicationDao().get(2)!!
             assertEquals(emptyList<String>(), metformin.photos)
-            assertEquals(listOf(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(21, 0)))), metformin.schedule.rules)
-            assertEquals(LocalDate.parse("2026-10-20"), metformin.schedule.endDate)
+            assertEquals(listOf(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0), LocalTime.of(21, 0)))), metformin.steps.single().rules)
+            assertEquals(LocalDate.parse("2026-10-20"), metformin.steps.single().endDate)
 
             val logs = db.doseLogDao().since(Instant.EPOCH).sortedBy { it.id }
             assertEquals(listOf(1L, 2L), logs.map { it.medicationId })

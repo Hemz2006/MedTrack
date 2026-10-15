@@ -51,7 +51,7 @@ class MealCheckerTest {
         medId = db.medicationDao().insert(
             MedicationEntity(
                 genericName = "metformin",
-                schedule = Schedule(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)), LocalDate.parse("2026-10-01")),
+                steps = listOf(Schedule(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)), LocalDate.parse("2026-10-01"))),
                 createdAt = now,
             ),
         )
@@ -112,7 +112,7 @@ class MealCheckerTest {
         val dinnerId = db.medicationDao().insert(
             MedicationEntity(
                 genericName = "dinnerpill",
-                schedule = Schedule(ScheduleRule.AfterMeal(MealType.DINNER, 120, LocalTime.of(23, 0)), LocalDate.parse("2026-10-01")),
+                steps = listOf(Schedule(ScheduleRule.AfterMeal(MealType.DINNER, 120, LocalTime.of(23, 0)), LocalDate.parse("2026-10-01"))),
                 createdAt = now,
             ),
         )
@@ -137,12 +137,12 @@ class MealCheckerTest {
         val med = db.medicationDao().get(medId)!!
         db.medicationDao().update(
             med.copy(
-                schedule = med.schedule.copy(
+                steps = listOf(med.steps.single().copy(
                     rules = listOf(
                         ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)),
                         ScheduleRule.AfterMeal(MealType.DINNER, 0, LocalTime.of(22, 0)),
                     ),
-                ),
+                )),
             ),
         )
         meals = listOf(Meal(at("2026-10-13T08:10"), MealType.BREAKFAST))

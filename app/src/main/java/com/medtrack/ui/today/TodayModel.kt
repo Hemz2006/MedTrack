@@ -41,11 +41,11 @@ fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Ins
     val handledToday = logs.filter { it.forDate == today && it.slot != null }.map { it.medicationId to it.slot }.toSet()
 
     val upcoming = meds.filter { it.active }.flatMap { med ->
-        med.schedule.rules.flatMap { rule ->
+        med.steps.flatMap { it.rules.map { rule -> it to rule } }.flatMap { (step, rule) ->
             val slot = rule.slot
             val skip = if (slot != null && (med.id to slot) in handledToday) setOf(today) else emptySet()
             val mealHint = (rule as? ScheduleRule.AfterMeal)?.let { "After ${mealName(it.meal)}" }
-            dosesBetween(med.schedule, rule, now, dayEnd.minusMillis(1), zone, skip)
+            dosesBetween(step, rule, now, dayEnd.minusMillis(1), zone, skip)
                 .filter { (med.id to it) !in loggedKeys }
                 .map { due -> TodayItem("up-${med.id}-${due.toEpochMilli()}", null, med, due, null, null, mealHint, slot = slot) }
         }.distinctBy { it.key } // two rules landing on the same minute are one dose
@@ -80,7 +80,7 @@ data class TodayGroup(val key: String, val label: String, val items: List<TodayI
     fun isDueNow(now: Instant): Boolean = items.any { it.isDueNow(now) }
 }
 
-private val HH_MM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+private val HH_MM: DateTimeFormatter = com.medtrack.schedule.TIME_12
 
 /** Groups time-ordered items by display time; upcoming after-meal doses group under their meal ("After dinner, by 22:00"). */
 fun groupToday(items: List<TodayItem>, zone: ZoneId): List<TodayGroup> =

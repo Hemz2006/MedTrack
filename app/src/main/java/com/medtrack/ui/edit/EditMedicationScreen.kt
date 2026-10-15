@@ -158,7 +158,7 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
             }
 
             Section("Schedule") {
-                ScheduleEditor(med.schedule) { s -> vm.update { it.copy(schedule = s) } }
+                ScheduleEditor(med.steps, med.doseText) { s -> vm.update { it.copy(steps = s) } }
             }
 
             Button(onClick = vm::save, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Save") }

@@ -5,7 +5,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-private val HM = DateTimeFormatter.ofPattern("HH:mm")
+/** Clock times everywhere in the app: "8:00 AM". */
+val TIME_12: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private val HM = TIME_12
 private val DAY_MONTH = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
 fun mealName(meal: MealType): String = when (meal) {

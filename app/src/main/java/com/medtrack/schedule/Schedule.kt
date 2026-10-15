@@ -10,6 +10,7 @@ package com.medtrack.schedule
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -42,6 +43,8 @@ data class Schedule(
     val rules: List<ScheduleRule>,
     val startDate: LocalDate,
     val endDate: LocalDate? = null,
+    /** This step's dose ("2 puffs"); null means the medication's usual dose. */
+    val dose: String? = null,
 ) {
     constructor(rule: ScheduleRule, startDate: LocalDate, endDate: LocalDate? = null) : this(listOf(rule), startDate, endDate)
 }
@@ -57,8 +60,11 @@ val Schedule.hasMealRule: Boolean get() = rules.any { it is ScheduleRule.AfterMe
 
 object ScheduleJson {
     private val json = Json { ignoreUnknownKeys = true }
+    private val steps = ListSerializer(Schedule.serializer())
     fun encode(schedule: Schedule): String = json.encodeToString(Schedule.serializer(), schedule)
     fun decode(text: String): Schedule = json.decodeFromString(Schedule.serializer(), text)
+    fun encodeSteps(list: List<Schedule>): String = json.encodeToString(steps, list)
+    fun decodeSteps(text: String): List<Schedule> = json.decodeFromString(steps, text)
 }
 
 /** A user-facing message describing why the schedule can't be saved, or null if it's valid. */

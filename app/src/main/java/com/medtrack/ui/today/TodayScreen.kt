@@ -110,7 +110,7 @@ fun TodayScreen(
     var warnings by remember { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(resumes) {
         val status = readSetupStatus(context, c.health)
-        val hasMealMeds = c.db.medicationDao().active().any { it.schedule.hasMealRule }
+        val hasMealMeds = c.db.medicationDao().active().any { it.steps.hasMealRule }
         warnings = buildList {
             if (!status.notifications || !status.exactAlarms) add("Reminders may not ring. Tap to finish setup in Settings.")
             if (hasMealMeds && status.health != HealthStatus.CONNECTED) {
@@ -128,7 +128,7 @@ fun TodayScreen(
         scope.launch {
             // The write runs in the app scope so leaving the screen can't cancel it half way.
             val target = try {
-                c.appScope.async { act(c, item, status) }.await()
+                c.appScope.async { recordDose(c, item, status) }.await()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -181,7 +181,7 @@ fun TodayScreen(
                     items(group.items, key = { it.stableKey }) { item ->
                         DoseRow(
                             item, s.now, s.zone, dueNow,
-                            onTake = { record(item, DoseStatus.TAKEN) },
+                            onTick = { ticked -> if (ticked) record(item, DoseStatus.TAKEN) else c.appScope.launch { untickDose(c, item) } },
                             onMore = { sheetItem = item },
                         )
                     }
@@ -229,13 +229,4 @@ private fun EmptyToday(hasMedications: Boolean, onAddMedication: () -> Unit) {
             Button(onClick = onAddMedication, modifier = Modifier.heightIn(min = 48.dp)) { Text("Add medication") }
         }
     }
-}
-
-/** Takes or skips a dose; returns what undo needs, or null when nothing changed. */
-private suspend fun act(c: AppContainer, item: TodayItem, status: DoseStatus): UndoTarget? {
-    val logId = item.logId ?: return c.engine.recordUpcoming(item.medication.id, item.dueAt, status, item.slot)
-    val previous = item.status ?: return null
-    if (previous == status) return null
-    if (status == DoseStatus.TAKEN) c.engine.markTaken(logId) else c.engine.markSkipped(logId)
-    return UndoTarget(logId, previous)
 }

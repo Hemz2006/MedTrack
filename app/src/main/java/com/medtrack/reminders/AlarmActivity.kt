@@ -1,6 +1,9 @@
 package com.medtrack.reminders
 
-import com.medtrack.data.doseLine
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.Alignment
+import com.medtrack.ui.common.FormIcon
+import com.medtrack.data.doseLineOn
 import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
 import android.graphics.Color.TRANSPARENT
@@ -111,9 +114,14 @@ private fun AlarmScreen(c: AppContainer, onEmpty: () -> Unit) {
 @Composable
 private fun AlarmDose(c: AppContainer, log: DoseLogEntity, med: MedicationEntity, single: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (single) PhotoHeader(med.coverPhoto, med.title) else PhotoThumb(med.coverPhoto, med.title, 120.dp)
+        if (single) PhotoHeader(med.coverPhoto, med.title) else PhotoThumb(med.coverPhoto, med.title, 120.dp, form = med.form)
         Text(med.displayName(), style = MaterialTheme.typography.displaySmall)
-        med.doseLine?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
+        med.doseLineOn(log.forDate)?.let {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FormIcon(med.form, Modifier.padding(end = 8.dp), size = 28.dp, tint = LocalContentColor.current)
+                Text(it, style = MaterialTheme.typography.titleLarge)
+            }
+        }
         Text("Due ${TIME.format(log.dueAt.atZone(ZoneId.systemDefault()))}", style = MaterialTheme.typography.titleMedium.tabular())
         med.notes?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
         AlarmPrimaryButton("Taken") { c.appScope.launch { c.engine.markTaken(log.id) } }

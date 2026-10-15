@@ -26,8 +26,8 @@ class MedFormTest {
 
     @Test fun doseLineCombinesFormAndDose() {
         val med = newMedication(LocalDate.parse("2026-10-13"), Instant.EPOCH)
-        assertNull(med.doseLine)
-        assertEquals("Inhaler · 2 puffs", med.copy(form = MedForm.INHALER, doseText = "2 puffs").doseLine)
-        assertEquals("1 tablet", med.copy(doseText = "1 tablet").doseLine)
+        assertNull(med.doseLineOn(LocalDate.parse("2026-10-13")))
+        assertEquals("Inhaler · 2 puffs", med.copy(form = MedForm.INHALER, doseText = "2 puffs").doseLineOn(LocalDate.parse("2026-10-13")))
+        assertEquals("1 tablet", med.copy(doseText = "1 tablet").doseLineOn(LocalDate.parse("2026-10-13")))
     }
 }

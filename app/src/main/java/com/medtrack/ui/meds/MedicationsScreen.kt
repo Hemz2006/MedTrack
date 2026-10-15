@@ -1,6 +1,21 @@
 package com.medtrack.ui.meds
 
-import com.medtrack.data.doseLine
+import androidx.compose.ui.Alignment
+import com.medtrack.ui.common.FormIcon
+import java.time.ZoneId
+import java.time.Instant
+import java.time.Duration
+import kotlinx.coroutines.launch
+import com.medtrack.ui.today.untickDose
+import com.medtrack.ui.today.recordDose
+import com.medtrack.ui.today.buildToday
+import com.medtrack.ui.today.TodayItem
+import com.medtrack.ui.today.DoseCheck
+import com.medtrack.ui.common.TIME
+import com.medtrack.data.DoseStatus
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import com.medtrack.data.doseLineOn
 import com.medtrack.data.subtitle
 import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
@@ -35,7 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medtrack.AppContainer
 import com.medtrack.data.MedicationEntity
-import com.medtrack.schedule.describe
+import com.medtrack.schedule.describeOn
 import com.medtrack.ui.common.PhotoThumb
 import com.medtrack.ui.common.ScreenScaffold
 import com.medtrack.ui.common.TextTag
@@ -44,6 +59,7 @@ import com.medtrack.ui.theme.medColors
 @Composable
 fun MedicationsScreen(c: AppContainer, onAdd: () -> Unit, onOpen: (Long) -> Unit) {
     val meds by remember { c.db.medicationDao().observeAll() }.collectAsStateWithLifecycle(null)
+    val logs by remember { c.db.doseLogDao().observeSince(Instant.now().minus(Duration.ofDays(2))) }.collectAsStateWithLifecycle(emptyList())
     ScreenScaffold(
         title = "Medications",
         isTab = true,
@@ -67,10 +83,16 @@ fun MedicationsScreen(c: AppContainer, onAdd: () -> Unit, onOpen: (Long) -> Unit
             }
         } else {
             // Bottom padding keeps the last row clear of the extended FAB.
+            val now = Instant.now()
+            val zone = ZoneId.systemDefault()
+            val todayByMed = remember(list, logs) { buildToday(list, logs, now, zone).groupBy { it.medication.id } }
             LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
                 itemsIndexed(list, key = { _, it -> it.id }) { index, med ->
                     if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.medColors.foil)
                     MedicationRow(med) { onOpen(med.id) }
+                    TodayTicks(todayByMed[med.id].orEmpty(), now, zone) { item, ticked ->
+                        c.appScope.launch { if (ticked) recordDose(c, item, DoseStatus.TAKEN) else untickDose(c, item) }
+                    }
                 }
             }
         }
@@ -84,7 +106,7 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClickLabel = "Open details", onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        PhotoThumb(med.coverPhoto, med.title, 56.dp, Modifier.alpha(if (med.active) 1f else 0.5f))
+        PhotoThumb(med.coverPhoto, med.title, 56.dp, Modifier.alpha(if (med.active) 1f else 0.5f), form = med.form)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -92,11 +114,26 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = if (med.active) colors.ink else colors.inkMuted,
             )
-            listOfNotNull(med.subtitle, med.doseLine).joinToString(" · ").ifEmpty { null }?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
+            listOfNotNull(med.subtitle, med.doseLineOn(java.time.LocalDate.now())).joinToString(" · ").ifEmpty { null }?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FormIcon(med.form, Modifier.padding(end = 6.dp))
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
+                }
             }
-            Text(med.schedule.describe(), style = MaterialTheme.typography.bodyMedium, color = if (med.active) colors.ink else colors.inkMuted)
+            Text(med.steps.describeOn(java.time.LocalDate.now()), style = MaterialTheme.typography.bodyMedium, color = if (med.active) colors.ink else colors.inkMuted)
             if (!med.active) TextTag("Paused", colors.inkMuted, Modifier.padding(top = 4.dp))
+        }
+    }
+}
+
+/** Today's doses of one medication as tick boxes labelled with their times: tick each one as you take it. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TodayTicks(items: List<TodayItem>, now: Instant, zone: ZoneId, onTick: (TodayItem, Boolean) -> Unit) {
+    if (items.isEmpty()) return
+    FlowRow(Modifier.fillMaxWidth().padding(start = 76.dp, end = 16.dp, bottom = 8.dp)) {
+        items.forEach { item ->
+            DoseCheck(item, now, zone, onCheckedChange = { onTick(item, it) }, label = TIME.format(item.dueAt.atZone(zone)))
         }
     }
 }

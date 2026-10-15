@@ -25,7 +25,7 @@ class MealChecker(
         val now = c.instant()
         val zone = c.zone
         val today = LocalDate.now(c)
-        val mealMeds = medications.active().filter { it.schedule.hasMealRule }
+        val mealMeds = medications.active().filter { it.steps.hasMealRule }
         if (mealMeds.isEmpty()) return
         val dayStart = today.atStartOfDay(zone).toInstant()
         val meals = readMeals(dayStart, now) ?: return
@@ -33,10 +33,10 @@ class MealChecker(
             .filter { it.forDate == today && it.slot != null }
             .map { it.medicationId to it.slot }
             .toSet()
-        for (med in mealMeds) for (rule in med.schedule.rules.filterIsInstance<ScheduleRule.AfterMeal>()) {
+        for (med in mealMeds) for (step in med.steps) for (rule in step.rules.filterIsInstance<ScheduleRule.AfterMeal>()) {
             val slot = rule.slot!!
             val handled = if ((med.id to slot) in handledToday) setOf(today) else emptySet()
-            val due = mealTriggeredDose(med.schedule, rule, meals, today, zone, handled) ?: continue
+            val due = mealTriggeredDose(step, rule, meals, today, zone, handled) ?: continue
             engine.addMealDose(med.id, slot, maxOf(due, now), today)
         }
     }

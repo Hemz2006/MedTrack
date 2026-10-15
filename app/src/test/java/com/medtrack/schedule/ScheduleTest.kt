@@ -52,17 +52,17 @@ class ScheduleTest {
             start,
             start.plusDays(7),
         )
-        assertEquals("Right after breakfast (by 10:00); 30 min after dinner (by 22:00), until 20 Oct", s.describe())
+        assertEquals("Right after breakfast (by 10:00 AM); 30 min after dinner (by 10:00 PM), until 20 Oct", s.describe())
         assertEquals(s, ScheduleJson.decode(ScheduleJson.encode(s)))
     }
 
     @Test fun describesEachRuleType() {
-        assertEquals("Daily at 08:00, 21:00", samples[0].describe())
-        assertEquals("Mon, Wed, Fri at 08:00, until 20 Oct", samples[1].describe())
-        assertEquals("Every 6 h from 06:00", samples[2].describe())
-        assertEquals("30 min after breakfast (by 10:00)", samples[3].describe())
+        assertEquals("Daily at 8:00 AM, 9:00 PM", samples[0].describe())
+        assertEquals("Mon, Wed, Fri at 8:00 AM, until 20 Oct", samples[1].describe())
+        assertEquals("Every 6 h from 6:00 AM", samples[2].describe())
+        assertEquals("30 min after breakfast (by 10:00 AM)", samples[3].describe())
         assertEquals(
-            "Right after any meal (by 13:00)",
+            "Right after any meal (by 1:00 PM)",
             Schedule(ScheduleRule.AfterMeal(MealType.ANY, 0, t("13:00")), start).describe(),
         )
     }

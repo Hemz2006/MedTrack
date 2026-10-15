@@ -1,6 +1,6 @@
 package com.medtrack.reminders
 
-import com.medtrack.data.doseLine
+import com.medtrack.data.doseLineOn
 import com.medtrack.data.AppPrefs
 import com.medtrack.data.DoseLogDao
 import com.medtrack.data.DoseLogEntity
@@ -124,7 +124,7 @@ class ReminderEngine(
             .mapValues { (_, dates) -> dates.toSet() }
 
         val plan = planScan(
-            meds = meds.map { MedSchedule(it.id, it.schedule) },
+            meds = meds.flatMap { med -> med.steps.map { MedSchedule(med.id, it) } },
             handledDates = handled,
             pending = pendingActive.map { PendingDose(it.id, it.medicationId, it.dueAt, it.snoozedUntil) },
             lastScanAt = lastScan,
@@ -150,7 +150,7 @@ class ReminderEngine(
                 notifier.ring(
                     ring.sortedBy { it.dueAt }.mapNotNull { log ->
                         medsById[log.medicationId]?.let { med ->
-                            RingItem(log.id, med.displayName(), listOfNotNull(med.doseLine, med.notes?.takeIf { it.isNotBlank() }).joinToString(" · "), med.coverPhoto)
+                            RingItem(log.id, med.displayName(), listOfNotNull(med.doseLineOn(log.forDate), med.notes?.takeIf { it.isNotBlank() }).joinToString(" · "), med.coverPhoto)
                         }
                     },
                 )

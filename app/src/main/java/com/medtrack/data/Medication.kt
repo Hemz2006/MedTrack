@@ -1,9 +1,11 @@
 package com.medtrack.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.medtrack.schedule.Schedule
 import com.medtrack.schedule.ScheduleRule
+import com.medtrack.schedule.stepOn
 import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.LocalDate
@@ -33,7 +35,8 @@ data class MedicationEntity(
     /** Photo file paths; the first is the one shown in lists, notifications and alarms. */
     val photos: List<String> = emptyList(),
     val active: Boolean = true,
-    val schedule: Schedule,
+    /** Steps run back to back (e.g. 6 times a day for 2 weeks, then 4 times a day); usually just one. */
+    @ColumnInfo(name = "schedule") val steps: List<Schedule>,
     val createdAt: Instant,
 )
 
@@ -47,14 +50,18 @@ val MedicationEntity.title: String
 val MedicationEntity.subtitle: String?
     get() = genericName.takeIf { it.isNotBlank() && title != genericName }
 
-/** "Inhaler · 2 puffs": how it's taken, for lists, Today and alarms; null when neither is known. */
-val MedicationEntity.doseLine: String?
-    get() = listOfNotNull(form?.label, doseText?.takeIf { it.isNotBlank() }).joinToString(" · ").ifEmpty { null }
+/** The dose on [date]: the running step's own dose, otherwise the medication's usual one. */
+fun MedicationEntity.doseOn(date: LocalDate): String? =
+    steps.stepOn(date)?.dose?.takeIf { it.isNotBlank() } ?: doseText?.takeIf { it.isNotBlank() }
+
+/** "Inhaler · 2 puffs": how it's taken on [date], for lists, Today and alarms; null when neither is known. */
+fun MedicationEntity.doseLineOn(date: LocalDate): String? =
+    listOfNotNull(form?.label, doseOn(date)).joinToString(" · ").ifEmpty { null }
 
 fun MedicationEntity.displayName(): String = subtitle?.let { "$title ($it)" } ?: title
 
 fun newMedication(today: LocalDate, now: Instant) = MedicationEntity(
     genericName = "",
-    schedule = Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0))), today),
+    steps = listOf(Schedule(ScheduleRule.DailyTimes(listOf(LocalTime.of(8, 0))), today)),
     createdAt = now,
 )

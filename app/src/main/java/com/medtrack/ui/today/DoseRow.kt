@@ -1,6 +1,7 @@
 package com.medtrack.ui.today
 
-import com.medtrack.data.doseLine
+import com.medtrack.ui.common.FormIcon
+import com.medtrack.data.doseLineOn
 import com.medtrack.data.title
 import com.medtrack.data.coverPhoto
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -66,18 +67,17 @@ fun DoseRow(
     now: Instant,
     zone: ZoneId,
     dueNow: Boolean,
-    onTake: () -> Unit,
+    onTick: (Boolean) -> Unit,
     onMore: () -> Unit,
 ) {
-    val hasAction = item.isDueNow(now) || item.status == DoseStatus.MISSED
     // At large font sizes there is no room beside the name, so the status/actions go underneath it.
     val stacked = LocalDensity.current.fontScale >= 1.5f
     Row(
         Modifier.fillMaxWidth()
             .dueRule(dueNow)
             .combinedClickable(
-                onClick = { if (!hasAction) onMore() },
-                onClickLabel = if (hasAction) null else "More actions",
+                onClick = onMore,
+                onClickLabel = "More actions",
                 onLongClick = onMore,
                 onLongClickLabel = "More actions",
             )
@@ -85,27 +85,30 @@ fun DoseRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PhotoThumb(item.medication.coverPhoto, item.medication.title, 48.dp)
+        PhotoThumb(item.medication.coverPhoto, item.medication.title, 48.dp, form = item.medication.form)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(item.medication.displayName(), style = MaterialTheme.typography.titleMedium)
             detailLine(item, zone)?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.medColors.inkMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FormIcon(item.medication.form, Modifier.padding(end = 6.dp))
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.medColors.inkMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             if (stacked) {
                 Spacer(Modifier.height(4.dp))
-                DoseStatusAction(item, now, zone, onTake, alignEnd = false)
+                DoseCheck(item, now, zone, onTick)
             }
         }
         if (!stacked) {
             Spacer(Modifier.width(12.dp))
-            DoseStatusAction(item, now, zone, onTake, alignEnd = true)
+            DoseCheck(item, now, zone, onTick)
         }
     }
 }
@@ -117,36 +120,5 @@ private fun detailLine(item: TodayItem, zone: ZoneId): String? {
         if (it.length > 40) it.take(39).trimEnd() + "…" else it
     }
     val snoozed = item.snoozedUntil?.takeIf { item.status == DoseStatus.PENDING }?.let { "Snoozed to ${TIME.format(it.atZone(zone))}" }
-    return listOfNotNull(med.doseLine, note, snoozed).joinToString(" · ").ifEmpty { null }
-}
-
-@Composable
-private fun DoseStatusAction(item: TodayItem, now: Instant, zone: ZoneId, onTake: () -> Unit, alignEnd: Boolean) {
-    val colors = MaterialTheme.medColors
-    val labelStyle = MaterialTheme.typography.bodyMedium
-    when {
-        item.isDueNow(now) -> Button(
-            onClick = onTake,
-            colors = ButtonDefaults.buttonColors(containerColor = colors.amber, contentColor = colors.onAmber),
-            modifier = Modifier.heightIn(min = 48.dp),
-        ) { Text("Take", style = MaterialTheme.typography.titleMedium) }
-
-        item.status == DoseStatus.MISSED -> Column(
-            horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
-        ) {
-            Text("Missed", style = labelStyle, color = colors.missed)
-            OutlinedButton(onClick = onTake, modifier = Modifier.heightIn(min = 48.dp)) { Text("Take now") }
-        }
-
-        item.status == DoseStatus.TAKEN -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = colors.taken, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(4.dp))
-            val at = item.actedAt?.let { " " + TIME.format(it.atZone(zone)) }.orEmpty()
-            Text("Taken$at", style = labelStyle.tabular(), color = colors.taken)
-        }
-
-        item.status == DoseStatus.SKIPPED -> Text("Skipped", style = labelStyle, color = colors.inkMuted)
-
-        else -> Text("Later", style = labelStyle, color = colors.inkMuted)
-    }
+    return listOfNotNull(med.doseLineOn(item.dueAt.atZone(zone).toLocalDate()), note, snoozed).joinToString(" · ").ifEmpty { null }
 }

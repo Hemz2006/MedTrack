@@ -27,21 +27,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.medtrack.data.MedForm
 import com.medtrack.data.PhotoStore
 import com.medtrack.ui.theme.LabelShape
 import com.medtrack.ui.theme.medColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** The medication's photo, or a foil tile with its initial. */
+/** The medication's photo, or a foil tile with a picture of its form (or its initial when the form is unknown). */
 @Composable
-fun PhotoThumb(path: String?, name: String, size: Dp, modifier: Modifier = Modifier) =
-    PhotoBox(path, name, modifier.size(size), initialSize(size))
+fun PhotoThumb(path: String?, name: String, size: Dp, modifier: Modifier = Modifier, form: MedForm? = null) =
+    PhotoBox(path, name, modifier.size(size), initialSize(size), form, size * 0.55f)
 
 /** The photo as a full-width header image (16:10). */
 @Composable
 fun PhotoHeader(path: String?, name: String, modifier: Modifier = Modifier) =
-    PhotoBox(path, name, modifier.fillMaxWidth().aspectRatio(16f / 10f), 64.sp)
+    PhotoBox(path, name, modifier.fillMaxWidth().aspectRatio(16f / 10f), 64.sp, null, 0.dp)
 
 /** Several photos as a swipeable header, with "2 of 3" beneath when there's more than one. */
 @Composable
@@ -59,7 +60,7 @@ fun PhotoGallery(paths: List<String>, name: String, modifier: Modifier = Modifie
 }
 
 @Composable
-private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: TextUnit) {
+private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: TextUnit, form: MedForm?, iconSize: Dp) {
     val bitmap by produceState<ImageBitmap?>(null, path) {
         value = path?.let { withContext(Dispatchers.IO) { PhotoStore.decodeSampled(it, 512)?.asImageBitmap() } }
     }
@@ -72,11 +73,15 @@ private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: T
                 .clearAndSetSemantics { contentDescription = "No photo of $name" },
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                name.take(1).uppercase(),
-                color = MaterialTheme.medColors.ink,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = initial, lineHeight = initial),
-            )
+            if (form?.iconRes != null) {
+                FormIcon(form, size = iconSize, tint = MaterialTheme.medColors.ink)
+            } else {
+                Text(
+                    name.take(1).uppercase(),
+                    color = MaterialTheme.medColors.ink,
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = initial, lineHeight = initial),
+                )
+            }
         }
     }
 }

@@ -49,6 +49,13 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
+/** v4: a medication's schedule becomes a list of steps (a tapering course); existing ones become one step. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("UPDATE medications SET schedule = '[' || schedule || ']'")
+    }
+}
+
 private val json = Json { ignoreUnknownKeys = true }
 
 /** v1 stored one rule as `"rule": {...}`; v2 stores `"rules": [{...}]`. */

@@ -1,5 +1,15 @@
 package com.medtrack.ui.edit
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.material3.HorizontalDivider
+import com.medtrack.schedule.spreadTimes
+import com.medtrack.schedule.lengthDays
+import com.medtrack.schedule.withStepLength
+import com.medtrack.schedule.withStep
+import com.medtrack.schedule.withoutStep
+import com.medtrack.schedule.withAddedStep
+import com.medtrack.schedule.withFirstStart
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -63,9 +73,71 @@ import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** The medication's schedule rules (e.g. after breakfast and after dinner), plus the course dates they share. */
+/**
+ * The medication's schedule. Usually one step; a tapering course has several (6 times a day for 2 weeks,
+ * then 4 times a day for 2 weeks…), each with its own length, dose and timings.
+ */
 @Composable
-fun ScheduleEditor(schedule: Schedule, onChange: (Schedule) -> Unit) {
+fun ScheduleEditor(steps: List<Schedule>, usualDose: String?, onChange: (List<Schedule>) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (steps.size == 1) {
+            val step = steps.single()
+            StepRules(step) { onChange(listOf(it)) }
+            DateRow("Start date", step.startDate, clearable = false) { it?.let { d -> onChange(steps.withFirstStart(d)) } }
+            DateRow("End date (optional)", step.endDate, clearable = true) { onChange(listOf(step.copy(endDate = it))) }
+        } else {
+            steps.forEachIndexed { index, step ->
+                StepBlock(index, steps, usualDose, onChange)
+            }
+        }
+        OutlinedButton(onClick = { onChange(steps.withAddedStep()) }, modifier = Modifier.heightIn(min = 48.dp)) {
+            Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(if (steps.size == 1) "Change the dose later (add a step)" else "Add another step")
+        }
+    }
+}
+
+@Composable
+private fun StepBlock(index: Int, steps: List<Schedule>, usualDose: String?, onChange: (List<Schedule>) -> Unit) {
+    val step = steps[index]
+    val last = index == steps.lastIndex
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Step ${index + 1}",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            IconButton(onClick = { onChange(steps.withoutStep(index)) }) { Icon(Icons.Default.Close, "Remove step ${index + 1}") }
+        }
+        if (index == 0) {
+            DateRow("Starts", step.startDate, clearable = false) { it?.let { d -> onChange(steps.withFirstStart(d)) } }
+        } else {
+            Text("Starts ${step.startDate.format(DATE)}", style = MaterialTheme.typography.bodyLarge)
+        }
+        DaysField(
+            label = if (last) "Lasts how many days (blank = until stopped)" else "Lasts how many days",
+            days = step.lengthDays,
+            allowBlank = last,
+        ) { onChange(steps.withStepLength(index, it)) }
+        OutlinedTextField(
+            value = step.dose.orEmpty(),
+            onValueChange = { onChange(steps.withStep(index, step.copy(dose = it.ifEmpty { null }))) },
+            label = { Text("Dose in this step") },
+            placeholder = { Text(usualDose?.takeIf { it.isNotBlank() }?.let { "Usual: $it" } ?: "e.g. 2 puffs") },
+            singleLine = true,
+            colors = fieldColors(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        StepRules(step) { onChange(steps.withStep(index, it)) }
+        HorizontalDivider(color = MaterialTheme.medColors.foil)
+    }
+}
+
+/** A step's rules (e.g. after breakfast and after dinner). */
+@Composable
+private fun StepRules(schedule: Schedule, onChange: (Schedule) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         schedule.rules.forEachIndexed { index, rule ->
             RuleBlock(
@@ -80,9 +152,28 @@ fun ScheduleEditor(schedule: Schedule, onChange: (Schedule) -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Add another time or meal")
         }
-        DateRow("Start date", schedule.startDate, clearable = false) { it?.let { d -> onChange(schedule.withStartDate(d)) } }
-        DateRow("End date (optional)", schedule.endDate, clearable = true) { onChange(schedule.copy(endDate = it)) }
     }
+}
+
+@Composable
+private fun DaysField(label: String, days: Int?, allowBlank: Boolean, onChange: (Int?) -> Unit) {
+    var text by remember(days) { mutableStateOf(days?.toString().orEmpty()) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { input ->
+            text = input.filter(Char::isDigit).take(3)
+            val n = text.toIntOrNull()
+            when {
+                n != null && n >= 1 -> onChange(n)
+                text.isEmpty() && allowBlank -> onChange(null)
+            }
+        },
+        label = { Text(label) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        colors = fieldColors(),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -169,6 +260,16 @@ private fun TimesEditor(times: List<LocalTime>, onChange: (List<LocalTime>) -> U
             label = { Text("Add time") },
             leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) },
         )
+    }
+    Text("Or spread through the day (8 AM – 10 PM):", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        (1..6).forEach { n ->
+            FilterChip(
+                selected = times.sorted() == spreadTimes(n),
+                onClick = { onChange(spreadTimes(n)) },
+                label = { Text(if (n == 1) "Once" else "$n times") },
+            )
+        }
     }
     if (picking) {
         TimePickDialog(LocalTime.of(8, 0), onDismiss = { picking = false }) { time ->

@@ -26,7 +26,7 @@ class DatabaseTest {
         genericName = "pantoprazole",
         brandName = "Pan 40",
         ingredients = listOf(Ingredient("pantoprazole", "40 MG", "C16H15F2N3O4S")),
-        schedule = Schedule(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)), LocalDate.parse("2026-10-13")),
+        steps = listOf(Schedule(ScheduleRule.AfterMeal(MealType.BREAKFAST, 30, LocalTime.of(10, 0)), LocalDate.parse("2026-10-13"))),
         createdAt = now,
     )
 

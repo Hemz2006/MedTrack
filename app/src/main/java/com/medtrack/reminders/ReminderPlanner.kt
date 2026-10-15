@@ -15,6 +15,7 @@ val MISSED_AFTER: Duration = Duration.ofHours(2)
 val SNOOZE_FOR: Duration = Duration.ofMinutes(10)
 private val MAX_BACKFILL: Duration = Duration.ofDays(7)
 
+/** One step of a medication's schedule; a medication with several steps gives several of these. */
 data class MedSchedule(val medicationId: Long, val schedule: Schedule)
 data class PendingDose(val logId: Long, val medicationId: Long, val dueAt: Instant, val snoozedUntil: Instant?)
 data class NewDose(val medicationId: Long, val dueAt: Instant, val trigger: DoseTrigger, val slot: String? = null)
