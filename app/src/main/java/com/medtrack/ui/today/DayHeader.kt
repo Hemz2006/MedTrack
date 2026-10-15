@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -77,7 +78,7 @@ internal fun DayControls(
         IconButton(onClick = { onDate(date.minusDays(1)) }) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous day")
         }
-        TextButton(onClick = { picking = true }, modifier = Modifier.weight(1f, fill = false)) {
+        TextButton(onClick = { picking = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
             Text(dayName(date, today), maxLines = 1)
         }
         IconButton(onClick = { onDate(date.plusDays(1)) }, enabled = date < today) {
