@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import java.time.LocalDate
 import com.medtrack.data.DoseLogEntity
 import com.medtrack.data.DoseStatus
 import com.medtrack.data.MedicationEntity
@@ -27,8 +28,14 @@ data class TodayItem(
 )
 
 /** Today's recorded doses plus the doses still to come, in time order. */
-fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Instant, zone: ZoneId): List<TodayItem> {
-    val today = now.atZone(zone).toLocalDate()
+fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Instant, zone: ZoneId): List<TodayItem> =
+    buildDay(meds, logs, now.atZone(zone).toLocalDate(), now, zone)
+
+/**
+ * The doses of [today]: the ones recorded (taken, skipped, missed, waiting) plus, for a day not yet over,
+ * the ones still to come. A past day shows only what was recorded; that is its history.
+ */
+fun buildDay(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, today: LocalDate, now: Instant, zone: ZoneId): List<TodayItem> {
     val dayStart = today.atStartOfDay(zone).toInstant()
     val dayEnd = today.plusDays(1).atStartOfDay(zone).toInstant()
     val byId = meds.associateBy { it.id }
@@ -45,13 +52,22 @@ fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Ins
             val slot = rule.slot
             val skip = if (slot != null && (med.id to slot) in handledToday) setOf(today) else emptySet()
             val mealHint = (rule as? ScheduleRule.AfterMeal)?.let { "After ${mealName(it.meal)}" }
-            dosesBetween(step, rule, now, dayEnd.minusMillis(1), zone, skip)
+            dosesBetween(step, rule, maxOf(now, dayStart.minusMillis(1)), dayEnd.minusMillis(1), zone, skip)
                 .filter { (med.id to it) !in loggedKeys }
                 .map { due -> TodayItem("up-${med.id}-${due.toEpochMilli()}", null, med, due, null, null, mealHint, slot = slot) }
         }.distinctBy { it.key } // two rules landing on the same minute are one dose
     }
     return (recorded + upcoming).sortedBy { it.dueAt }
 }
+
+/** Stays the same when a dose goes from upcoming to recorded, so its row isn't rebuilt. */
+val TodayItem.stableKey: String get() = "dose-${medication.id}-${dueAt.toEpochMilli()}"
+
+/** One medication's doses on the day, for the "By medication" view. Medications come in order of their first dose. */
+data class MedDay(val medication: MedicationEntity, val items: List<TodayItem>)
+
+fun List<TodayItem>.byMedication(): List<MedDay> =
+    groupBy { it.medication.id }.values.map { MedDay(it.first().medication, it) }
 
 /** Today's progress: doses taken out of doses to take. Skipped doses don't count against you. */
 data class DayProgress(val taken: Int, val total: Int) {

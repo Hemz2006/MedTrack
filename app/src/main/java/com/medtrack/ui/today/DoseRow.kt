@@ -96,7 +96,7 @@ fun DoseRow(
                         it,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.medColors.inkMuted,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

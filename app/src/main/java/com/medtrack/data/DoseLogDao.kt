@@ -38,6 +38,9 @@ interface DoseLogDao {
     @Query("SELECT * FROM dose_logs WHERE dueAt >= :from ORDER BY dueAt")
     fun observeSince(from: Instant): Flow<List<DoseLogEntity>>
 
+    @Query("SELECT * FROM dose_logs WHERE dueAt >= :from AND dueAt < :to ORDER BY dueAt")
+    fun observeBetween(from: Instant, to: Instant): Flow<List<DoseLogEntity>>
+
     @Query("SELECT * FROM dose_logs WHERE medicationId = :medicationId ORDER BY dueAt DESC LIMIT 200")
     fun observeForMedication(medicationId: Long): Flow<List<DoseLogEntity>>
 

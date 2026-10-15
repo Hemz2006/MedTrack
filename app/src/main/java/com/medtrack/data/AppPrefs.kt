@@ -17,8 +17,14 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_SETUP_DONE, false)
         set(value) = prefs.edit().putBoolean(KEY_SETUP_DONE, value).apply()
 
+    /** The Today screen's layout: "time" (grouped by time, the default) or "medication". */
+    var todayView: String
+        get() = prefs.getString(KEY_TODAY_VIEW, null) ?: "time"
+        set(value) = prefs.edit().putString(KEY_TODAY_VIEW, value).apply()
+
     private companion object {
         const val KEY_LAST_SCAN = "lastScanAt"
         const val KEY_SETUP_DONE = "setupDone"
+        const val KEY_TODAY_VIEW = "todayView"
     }
 }

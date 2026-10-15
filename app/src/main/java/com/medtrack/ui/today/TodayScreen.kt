@@ -1,14 +1,12 @@
 package com.medtrack.ui.today
 
-import com.medtrack.ui.theme.tabular
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.height
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
@@ -27,7 +25,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -43,18 +40,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -65,7 +58,6 @@ import com.medtrack.AppContainer
 import com.medtrack.data.DoseStatus
 import com.medtrack.data.displayName
 import com.medtrack.health.HealthStatus
-import com.medtrack.reminders.UndoTarget
 import com.medtrack.schedule.hasMealRule
 import com.medtrack.ui.common.containerViewModel
 import com.medtrack.ui.settings.readSetupStatus
@@ -83,27 +75,47 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
-data class TodayState(val items: List<TodayItem>, val hasMedications: Boolean, val now: Instant, val zone: ZoneId) {
-    val date: LocalDate get() = now.atZone(zone).toLocalDate()
+/** The doses of [date]: today, or a past day being looked back on. */
+data class TodayState(val items: List<TodayItem>, val hasMedications: Boolean, val now: Instant, val zone: ZoneId, val date: LocalDate) {
+    val today: LocalDate get() = now.atZone(zone).toLocalDate()
+    val isToday: Boolean get() = date == today
 }
 
-class TodayViewModel(c: AppContainer) : ViewModel() {
+@OptIn(ExperimentalCoroutinesApi::class)
+class TodayViewModel(private val c: AppContainer) : ViewModel() {
     private val ticker = flow { while (true) { emit(Unit); delay(30_000) } }
-    val state = combine(
-        c.db.medicationDao().observeAll(),
-        c.db.doseLogDao().observeSince(Instant.now().minus(Duration.ofDays(2))),
-        ticker,
-    ) { meds, logs, _ ->
-        val now = Instant.now()
-        val zone = ZoneId.systemDefault()
-        TodayState(buildToday(meds, logs, now, zone), meds.isNotEmpty(), now, zone)
+
+    /** A past day being looked at, or null for today (which then follows the clock past midnight). */
+    private val chosen = MutableStateFlow<LocalDate?>(null)
+    val view = MutableStateFlow(TodayView.from(c.prefs.todayView))
+
+    fun showDate(date: LocalDate) {
+        chosen.value = date.takeIf { it < LocalDate.now() }
+    }
+
+    fun setView(view: TodayView) {
+        this.view.value = view
+        c.prefs.todayView = view.key
+    }
+
+    val state = chosen.flatMapLatest { picked ->
+        // A dose belongs to its day by due time, but a late after-dinner dose can fall just past midnight, so read a day either side.
+        val logs = if (picked == null) {
+            c.db.doseLogDao().observeSince(Instant.now().minus(Duration.ofDays(2)))
+        } else {
+            val zone = ZoneId.systemDefault()
+            c.db.doseLogDao().observeBetween(picked.minusDays(1).atStartOfDay(zone).toInstant(), picked.plusDays(2).atStartOfDay(zone).toInstant())
+        }
+        combine(c.db.medicationDao().observeAll(), logs, ticker) { meds, logList, _ ->
+            val now = Instant.now()
+            val zone = ZoneId.systemDefault()
+            val date = picked ?: now.atZone(zone).toLocalDate()
+            TodayState(buildDay(meds, logList, date, now, zone), meds.isNotEmpty(), now, zone, date)
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
-private val DAY_HEADING: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH)
 
 @Composable
 fun TodayScreen(
@@ -114,6 +126,7 @@ fun TodayScreen(
 ) {
     val vm = containerViewModel { TodayViewModel(c) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val view by vm.view.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var resumes by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumes++ }
@@ -131,7 +144,6 @@ fun TodayScreen(
     var sheetItem by remember { mutableStateOf<TodayItem?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val listState = rememberLazyListState()
 
     /** Records the choice at once, then offers Undo. */
     fun record(item: TodayItem, status: DoseStatus) {
@@ -157,39 +169,34 @@ fun TodayScreen(
         contentWindowInsets = WindowInsets.statusBars,
     ) { padding ->
         val s = state ?: return@Scaffold
-        val groups = remember(s) { groupToday(s.items, s.zone) }
-        // LazyColumn index of each dose: its group header if it opens the group, so the time shows too.
-        val scrollIndex = remember(groups, warnings) {
-            buildMap {
-                var index = warnings.size
-                groups.forEach { group ->
-                    val header = index++
-                    group.items.forEachIndexed { i, item -> put(item.stableKey, if (i == 0) header else index); index++ }
-                }
-            }
+        val onTick: (TodayItem, Boolean) -> Unit = { item, ticked ->
+            if (ticked) record(item, DoseStatus.TAKEN) else c.appScope.launch { untickDose(c, item) }
         }
         Column(Modifier.padding(padding).fillMaxSize()) {
             DayRing(s.date, s.items.progress(), hasDoses = s.items.isNotEmpty())
-            if (s.items.isNotEmpty()) {
-                BlisterStrip(s.items, s.now, s.zone, onTap = { item ->
-                    scrollIndex[item.stableKey]?.let { scope.launch { listState.animateScrollToItem(it) } }
-                })
-            }
-            HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.medColors.foil)
-            LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
-                items(warnings) { warning -> SetupWarning(warning, onOpenSettings) }
+            DayControls(s.date, s.today, view, onDate = vm::showDate, onView = vm::setView)
+            HorizontalDivider(color = MaterialTheme.medColors.foil)
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
+                if (s.isToday) items(warnings) { warning -> SetupWarning(warning, onOpenSettings) }
                 if (s.items.isEmpty()) {
-                    item(key = "empty") { EmptyToday(s.hasMedications, onAddMedication) }
+                    item(key = "empty") { EmptyDay(s.hasMedications, s.isToday, onAddMedication) }
                 }
-                groups.forEach { group ->
-                    val dueNow = group.isDueNow(s.now)
-                    item(key = group.key) { GroupHeader(group, dueNow) }
-                    items(group.items, key = { it.stableKey }) { item ->
-                        DoseRow(
-                            item, s.now, s.zone, dueNow,
-                            onTick = { ticked -> if (ticked) record(item, DoseStatus.TAKEN) else c.appScope.launch { untickDose(c, item) } },
-                            onMore = { sheetItem = item },
-                        )
+                when (view) {
+                    TodayView.TIME -> groupToday(s.items, s.zone).forEach { group ->
+                        val dueNow = group.isDueNow(s.now)
+                        item(key = group.key) { GroupHeader(group, dueNow) }
+                        items(group.items, key = { it.stableKey }) { item ->
+                            DoseRow(item, s.now, s.zone, dueNow, onTick = { onTick(item, it) }, onMore = { sheetItem = item })
+                        }
+                    }
+                    TodayView.MEDICATION -> {
+                        val days = s.items.byMedication()
+                        days.forEachIndexed { index, day ->
+                            item(key = "med-${day.medication.id}") {
+                                if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.medColors.foil)
+                                MedicationDayCard(day, s.now, s.zone, onTick = onTick, onMore = { sheetItem = it })
+                            }
+                        }
                     }
                 }
             }
@@ -226,9 +233,11 @@ private fun SetupWarning(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmptyToday(hasMedications: Boolean, onAddMedication: () -> Unit) {
+private fun EmptyDay(hasMedications: Boolean, isToday: Boolean, onAddMedication: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (hasMedications) {
+        if (!isToday) {
+            Text("No doses were recorded on this day.", style = MaterialTheme.typography.bodyLarge)
+        } else if (hasMedications) {
             Text("No doses scheduled today.", style = MaterialTheme.typography.bodyLarge)
         } else {
             Text("Add your first medication to see today's doses here.", style = MaterialTheme.typography.bodyLarge)
@@ -237,49 +246,3 @@ private fun EmptyToday(hasMedications: Boolean, onAddMedication: () -> Unit) {
     }
 }
 
-/**
- * The date inside a ring that fills as today's doses are taken: amber while some are left, green when all are.
- * Beside it, the full date and "3 of 5 doses taken".
- */
-@Composable
-private fun DayRing(date: LocalDate, progress: DayProgress, hasDoses: Boolean) {
-    val colors = MaterialTheme.medColors
-    val done = hasDoses && progress.taken == progress.total
-    val fill by animateFloatAsState(progress.fraction, animationSpec = tween(400), label = "day ring")
-    val status = when {
-        !hasDoses -> null
-        done -> "All ${progress.total} doses taken"
-        else -> "${progress.taken} of ${progress.total} doses taken"
-    }
-    Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(112.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                progress = { if (hasDoses) fill else 0f },
-                modifier = Modifier.fillMaxSize(),
-                color = if (done) colors.taken else colors.amber,
-                trackColor = colors.foil,
-                strokeWidth = 8.dp,
-                strokeCap = StrokeCap.Round,
-                gapSize = 0.dp,
-            )
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(WEEKDAY.format(date), style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
-                Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.displaySmall.tabular(), color = colors.ink)
-            }
-        }
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                DAY_HEADING.format(date),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.semantics { heading() },
-            )
-            status?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = if (done) colors.taken else colors.inkMuted) }
-        }
-    }
-}
-
-private val WEEKDAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)

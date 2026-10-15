@@ -114,4 +114,31 @@ class TodayModelTest {
         assertEquals(DayProgress(taken = 1, total = 3), p)
         assertEquals(0f, emptyList<TodayItem>().progress().fraction)
     }
+
+    @Test fun pastDayShowsOnlyWhatWasRecorded() {
+        val logs = listOf(
+            DoseLogEntity(5, 1, at("2026-10-12T08:00"), DoseStatus.TAKEN, DoseTrigger.SCHEDULE, LocalDate.parse("2026-10-12")),
+            DoseLogEntity(6, 1, at("2026-10-12T21:00"), DoseStatus.MISSED, DoseTrigger.SCHEDULE, LocalDate.parse("2026-10-12")),
+            DoseLogEntity(7, 1, at("2026-10-13T08:00"), DoseStatus.TAKEN, DoseTrigger.SCHEDULE, LocalDate.parse("2026-10-13")),
+        )
+        val yesterday = buildDay(listOf(daily), logs, LocalDate.parse("2026-10-12"), at("2026-10-13T12:00"), zone)
+        assertEquals(listOf(DoseStatus.TAKEN, DoseStatus.MISSED), yesterday.map { it.status })
+        assertEquals(DayProgress(1, 2), yesterday.progress())
+    }
+
+    @Test fun byMedicationKeepsEachMedicinesDosesTogetherInFirstDoseOrder() {
+        val items = buildToday(listOf(daily, meal), emptyList(), at("2026-10-13T07:00"), zone)
+        val days = items.byMedication()
+        assertEquals(listOf(1L, 2L), days.map { it.medication.id })
+        assertEquals(listOf(at("2026-10-13T08:00"), at("2026-10-13T21:00")), days.first().items.map { it.dueAt })
+    }
+
+    @Test fun dayNamesAndViews() {
+        val today = LocalDate.parse("2026-10-15")
+        assertEquals("Today", dayName(today, today))
+        assertEquals("Yesterday", dayName(today.minusDays(1), today))
+        assertEquals("Mon 12 Oct", dayName(LocalDate.parse("2026-10-12"), today))
+        assertEquals(TodayView.MEDICATION, TodayView.from("medication"))
+        assertEquals(TodayView.TIME, TodayView.from("anything else"))
+    }
 }
