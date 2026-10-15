@@ -4,15 +4,10 @@ import com.medtrack.ui.common.PillNavItem
 import com.medtrack.ui.common.PillNavigation
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -37,12 +32,12 @@ object Routes {
     fun detail(id: Long) = "detail/$id"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, val label: String)
 
 private val tabs = listOf(
-    Tab(Routes.TODAY, "Today", Icons.Default.Home),
-    Tab(Routes.MEDS, "Medications", Icons.AutoMirrored.Filled.List),
-    Tab(Routes.SETTINGS, "Settings", Icons.Default.Settings),
+    Tab(Routes.TODAY, "Today"),
+    Tab(Routes.MEDS, "Medications"),
+    Tab(Routes.SETTINGS, "Settings"),
 )
 
 @Composable
@@ -55,7 +50,7 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
         bottomBar = {
             if (tabs.any { it.route == route }) {
                 PillNavigation(
-                    items = tabs.map { PillNavItem(it.route, it.label, it.icon) },
+                    items = tabs.map { PillNavItem(it.route, it.label) },
                     selectedId = route,
                     onSelect = { target ->
                         nav.navigate(target) {

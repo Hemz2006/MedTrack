@@ -1,28 +1,28 @@
 package com.medtrack.ui.today
 
-import androidx.annotation.RequiresApi
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,28 +37,52 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import com.medtrack.ui.theme.medColors
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
+// EasyUI Gooey Menu, scaled to sit in Today's header: pill, gap, row height and panel padding.
 private val WIDTH: Dp = 160.dp
-private val HEIGHT: Dp = 44.dp
-private val GAP: Dp = 8.dp
+private val PILL_H: Dp = 44.dp
+private val GAP: Dp = 10.dp
+private val ROW_H: Dp = 44.dp
+private val PANEL_PAD: Dp = 8.dp
+private val PANEL_RADIUS: Dp = 22.dp
+
+// Its colours: black ink, light text, a darker row under the highlighted option and a blue dot for the chosen one.
+private val Ink = Color(0xFF0E0E0E)
+private val TriggerText = Color(0xFFF4F4F4)
+private val RowText = Color(0xFFDCDCDC)
+private val RowActive = Color(0xFF232323)
+private val Chevron = Color(0xFFCFCFCF)
+private val Dot = Color(0xFF3B82F6)
+
+// Its framer-motion springs, converted: Compose stiffness = k / m, damping ratio = c / (2·√(k·m)).
+private fun drop() = spring<Float>(dampingRatio = 0.55f, stiffness = 240f) //   240 / 17 / 1
+private fun grow() = spring<Float>(dampingRatio = 0.76f, stiffness = 210f) //   210 / 22 / 1
+private fun snap() = spring<Float>(dampingRatio = 0.68f, stiffness = 267f) //   240 / 20 / 0.9
+private fun row() = spring<Float>(dampingRatio = 0.63f, stiffness = 420f) //    420 / 26 / 1
 
 /**
- * A liquid dropdown: the options squeeze out of the trigger pill on a spring and merge with it like drops of
- * ink (a blur-then-sharpen "metaball" filter, Android 12+; older phones get the same motion without the merge).
+ * A liquid dropdown, after EasyUI's Gooey Menu: a dark panel drops out of the trigger pill and stretches open on
+ * springs, joined to it by an ink-like bridge (blur 10 then a sharp alpha threshold — Android 12+; older phones
+ * get the same motion without the bridge). Options fade down into it one after another; the chosen one has a
+ * blue dot. Tap outside or the trigger to close.
  */
 @Composable
 fun <T> GooeyMenu(
@@ -68,25 +92,87 @@ fun <T> GooeyMenu(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val density = LocalDensity.current
+    val panelH = ROW_H * options.size + PANEL_PAD * 2
+    val panelY = with(density) { (PILL_H + GAP).toPx() }
+    val closedScale = PILL_H / panelH
+
     var open by remember { mutableStateOf(false) }
-    val progress = remember { Animatable(0f) }
+    var showing by remember { mutableStateOf(false) }
+    val y = remember { Animatable(0f) }
+    val scale = remember { Animatable(closedScale) }
+    val rows = remember(options.size) { List(options.size) { Animatable(0f) } }
+
     LaunchedEffect(open) {
-        progress.animateTo(
-            if (open) 1f else 0f,
-            if (open) spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessLow) else tween(220),
-        )
+        if (open) {
+            showing = true
+            coroutineScope {
+                launch { y.animateTo(panelY, drop()) }
+                launch { delay(50); scale.animateTo(1f, grow()) }
+                rows.forEachIndexed { i, r -> launch { delay(120L + 35L * i); r.animateTo(1f, row()) } }
+            }
+        } else if (showing) {
+            coroutineScope {
+                rows.reversed().forEachIndexed { i, r -> launch { delay(15L * i); r.animateTo(0f, snap()) } }
+                launch { y.animateTo(0f, snap()) }
+                launch { scale.animateTo(closedScale, snap()) }
+            }
+            showing = false
+        }
     }
+
     Box(modifier) {
-        Trigger(label(selected), progress.value, Modifier.alpha(if (progress.value > 0f) 0f else 1f)) { open = true }
-        if (open || progress.value > 0.001f) {
-            Popup(
-                alignment = Alignment.TopEnd,
-                onDismissRequest = { open = false },
-                properties = PopupProperties(focusable = true),
-            ) {
-                GooeyStack(options, selected, label, progress.value, onToggle = { open = false }) { option ->
-                    open = false
-                    onSelect(option)
+        Trigger(label(selected), open, Modifier.alpha(if (showing) 0f else 1f)) { open = true }
+        if (showing) {
+            Popup(alignment = Alignment.TopEnd, onDismissRequest = { open = false }, properties = PopupProperties(focusable = true)) {
+                Box(Modifier.size(WIDTH, PILL_H + GAP + panelH)) {
+                    // The ink: the pill and the panel as plain shapes, blurred and thresholded so they melt together.
+                    Box(
+                        Modifier.size(WIDTH, PILL_H + GAP + panelH).graphicsLayer {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) renderEffect = goo(10.dp.toPx())
+                        },
+                    ) {
+                        Box(Modifier.size(WIDTH, PILL_H).background(Ink, CircleShape))
+                        Box(
+                            Modifier
+                                .graphicsLayer {
+                                    translationY = y.value
+                                    scaleY = scale.value
+                                    transformOrigin = TransformOrigin(0.5f, 0f)
+                                }
+                                .size(WIDTH, panelH)
+                                .background(Ink, RoundedCornerShape(PANEL_RADIUS)),
+                        )
+                    }
+                    // The words, sharp, on top of the ink.
+                    Trigger(label(selected), open) { open = !open }
+                    Column(Modifier.offset(y = PILL_H + GAP).padding(vertical = PANEL_PAD)) {
+                        options.forEachIndexed { i, option ->
+                            val chosen = option == selected
+                            val shown = rows[i].value
+                            Row(
+                                Modifier
+                                    .graphicsLayer {
+                                        alpha = shown.coerceIn(0f, 1f)
+                                        translationY = (1f - shown) * -10.dp.toPx()
+                                    }
+                                    .padding(horizontal = 8.dp)
+                                    .width(WIDTH - 16.dp).height(ROW_H)
+                                    .background(if (chosen) RowActive else Color.Transparent, RoundedCornerShape(14.dp))
+                                    .clickable { open = false; onSelect(option) }
+                                    .semantics {
+                                        role = Role.RadioButton
+                                        this.selected = chosen
+                                        contentDescription = label(option)
+                                    }
+                                    .padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(label(option), color = if (chosen) Color.White else RowText, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                                if (chosen) Box(Modifier.size(6.dp).background(Dot, CircleShape))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -94,77 +180,24 @@ fun <T> GooeyMenu(
 }
 
 @Composable
-private fun Trigger(text: String, progress: Float, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val colors = MaterialTheme.medColors
+private fun Trigger(text: String, open: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val turn by animateFloatAsState(if (open) 180f else 0f, spring(dampingRatio = 0.58f, stiffness = 300f), label = "chevron")
     Row(
         modifier
-            .width(WIDTH).height(HEIGHT)
-            .background(colors.ink, CircleShape)
-            .clickable(role = Role.Button, onClickLabel = "Change view", onClick = onClick)
+            .size(WIDTH, PILL_H)
+            .background(Ink, CircleShape)
+            .clickable(role = Role.Button, onClickLabel = if (open) "Close view menu" else "Change view", onClick = onClick)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, color = colors.paper, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-        Icon(Icons.Default.KeyboardArrowDown, null, tint = colors.paper, modifier = Modifier.rotate(180f * progress))
+        Text(text, color = TriggerText, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium), modifier = Modifier.weight(1f), maxLines = 1)
+        Icon(Icons.Default.KeyboardArrowDown, null, tint = Chevron, modifier = Modifier.size(18.dp).rotate(turn))
     }
 }
 
-@Composable
-private fun <T> GooeyStack(
-    options: List<T>,
-    selected: T,
-    label: (T) -> String,
-    progress: Float,
-    onToggle: () -> Unit,
-    onPick: (T) -> Unit,
-) {
-    val colors = MaterialTheme.medColors
-    val density = LocalDensity.current
-    val step = HEIGHT + GAP
-    val total = step * (options.size + 1)
-    Box(Modifier.size(WIDTH, total)) {
-        // The ink: every pill drawn as a plain shape, then blurred and sharpened so near pills melt together.
-        Box(
-            Modifier.size(WIDTH, total).graphicsLayer {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) renderEffect = gooey(with(density) { 9.dp.toPx() })
-            },
-        ) {
-            Box(Modifier.size(WIDTH, HEIGHT).background(colors.ink, CircleShape))
-            options.forEachIndexed { i, _ ->
-                val y = step * (i + 1) * progress
-                Box(Modifier.offset { IntOffset(0, with(density) { y.roundToPx() }) }.size(WIDTH, HEIGHT).background(colors.ink, CircleShape))
-            }
-        }
-        // The words, sharp, on top of the ink.
-        Trigger(label(selected), progress, onClick = onToggle)
-        options.forEachIndexed { i, option ->
-            val y = step * (i + 1) * progress
-            val isSelected = option == selected
-            Row(
-                Modifier
-                    .offset { IntOffset(0, with(density) { y.roundToPx() }) }
-                    .size(WIDTH, HEIGHT)
-                    .alpha(((progress - 0.35f) / 0.65f).coerceIn(0f, 1f))
-                    .clickable { onPick(option) }
-                    .semantics {
-                        role = Role.RadioButton
-                        this.selected = isSelected
-                        contentDescription = label(option)
-                    }
-                    .padding(horizontal = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(label(option), color = colors.paper, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                if (isSelected) Icon(Icons.Default.Check, null, tint = colors.paper, modifier = Modifier.size(18.dp))
-                else Spacer(Modifier.size(18.dp))
-            }
-        }
-    }
-}
-
-/** Blur, then push alpha hard through a threshold: soft overlaps become one sharp-edged blob. */
+/** EasyUI's SVG filter: feGaussianBlur(10) then alpha × 22 − 14 — soft overlaps become one sharp-edged blob. */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun gooey(blurPx: Float) = RenderEffect.createChainEffect(
+private fun goo(blurPx: Float) = RenderEffect.createChainEffect(
     RenderEffect.createColorFilterEffect(
         ColorMatrixColorFilter(
             ColorMatrix(
@@ -172,7 +205,7 @@ private fun gooey(blurPx: Float) = RenderEffect.createChainEffect(
                     1f, 0f, 0f, 0f, 0f,
                     0f, 1f, 0f, 0f, 0f,
                     0f, 0f, 1f, 0f, 0f,
-                    0f, 0f, 0f, 22f, -10f * 255f,
+                    0f, 0f, 0f, 22f, -14f * 255f,
                 ),
             ),
         ),
