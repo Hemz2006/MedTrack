@@ -107,4 +107,11 @@ class TodayModelTest {
         assertEquals("1 puff", taper.doseOn(LocalDate.parse("2026-10-14")))
         assertEquals("usual", taper.doseOn(LocalDate.parse("2026-09-01"))) // before the course: the usual dose
     }
+
+    @Test fun progressCountsTakenOutOfDosesToTake() {
+        fun item(status: DoseStatus?) = TodayItem("k", 1, daily, at("2026-10-13T08:00"), status, null, null)
+        val p = listOf(item(DoseStatus.TAKEN), item(DoseStatus.MISSED), item(DoseStatus.SKIPPED), item(null)).progress()
+        assertEquals(DayProgress(taken = 1, total = 3), p)
+        assertEquals(0f, emptyList<TodayItem>().progress().fraction)
+    }
 }

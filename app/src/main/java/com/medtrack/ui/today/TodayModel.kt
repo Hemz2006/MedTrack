@@ -53,6 +53,14 @@ fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Ins
     return (recorded + upcoming).sortedBy { it.dueAt }
 }
 
+/** Today's progress: doses taken out of doses to take. Skipped doses don't count against you. */
+data class DayProgress(val taken: Int, val total: Int) {
+    val fraction: Float get() = if (total == 0) 0f else taken.toFloat() / total
+}
+
+fun List<TodayItem>.progress(): DayProgress =
+    DayProgress(taken = count { it.status == DoseStatus.TAKEN }, total = count { it.status != DoseStatus.SKIPPED })
+
 /** How a dose looks as a blister capsule (Today strip and detail history). */
 enum class CapsuleState(val spoken: String) {
     TAKEN("taken"), DUE("due now"), MISSED("missed"), SKIPPED("skipped"), UPCOMING("later"),

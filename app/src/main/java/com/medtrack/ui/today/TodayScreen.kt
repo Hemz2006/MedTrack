@@ -1,5 +1,10 @@
 package com.medtrack.ui.today
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.LinearProgressIndicator
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -159,6 +164,7 @@ fun TodayScreen(
             }
         }
         Column(Modifier.padding(padding).fillMaxSize()) {
+            if (s.items.isNotEmpty()) DayProgressBar(s.items.progress())
             Text(
                 DAY_HEADING.format(s.date),
                 style = MaterialTheme.typography.displaySmall,
@@ -228,5 +234,27 @@ private fun EmptyToday(hasMedications: Boolean, onAddMedication: () -> Unit) {
             Text("Add your first medication to see today's doses here.", style = MaterialTheme.typography.bodyLarge)
             Button(onClick = onAddMedication, modifier = Modifier.heightIn(min = 48.dp)) { Text("Add medication") }
         }
+    }
+}
+
+/** "3 of 5 taken" with a bar that fills as doses are ticked; green when everything is taken. */
+@Composable
+private fun DayProgressBar(progress: DayProgress) {
+    val colors = MaterialTheme.medColors
+    val done = progress.total > 0 && progress.taken == progress.total
+    val label = if (done) "All ${progress.total} doses taken" else "${progress.taken} of ${progress.total} doses taken"
+    Column(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp).clearAndSetSemantics { contentDescription = label },
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        LinearProgressIndicator(
+            progress = { progress.fraction },
+            modifier = Modifier.fillMaxWidth().height(8.dp),
+            color = if (done) colors.taken else colors.amber,
+            trackColor = colors.foil,
+            strokeCap = StrokeCap.Round,
+            drawStopIndicator = {},
+        )
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = if (done) colors.taken else colors.inkMuted)
     }
 }
