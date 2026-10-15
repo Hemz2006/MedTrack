@@ -90,8 +90,8 @@ fun DoseRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(item.medication.displayName(), style = MaterialTheme.typography.titleMedium)
             detailLine(item, zone)?.let {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FormIcon(item.medication.form, Modifier.padding(end = 6.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    FormIcon(item.medication.form, Modifier.padding(top = 1.dp, end = 6.dp))
                     Text(
                         it,
                         style = MaterialTheme.typography.bodyMedium,
@@ -108,7 +108,7 @@ fun DoseRow(
         }
         if (!stacked) {
             Spacer(Modifier.width(12.dp))
-            DoseCheck(item, now, zone, onTick)
+            DoseCheck(item, now, zone, onTick, stacked = true)
         }
     }
 }

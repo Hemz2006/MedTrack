@@ -1,5 +1,8 @@
 package com.medtrack.ui.today
 
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -40,9 +43,9 @@ internal suspend fun untickDose(c: AppContainer, item: TodayItem) {
     item.logId?.let { c.engine.undo(it, null) }
 }
 
-/** What the tick box's label says beside an unticked dose. */
-private fun TodayItem.statusText(now: Instant, zone: ZoneId): String = when {
-    status == DoseStatus.TAKEN -> "Taken" + (actedAt?.let { " " + TIME.format(it.atZone(zone)) } ?: "")
+/** What the tick box's label says; [separator] goes between "Taken" and its time. */
+private fun TodayItem.statusText(now: Instant, zone: ZoneId, separator: String = " "): String = when {
+    status == DoseStatus.TAKEN -> "Taken" + (actedAt?.let { separator + TIME.format(it.atZone(zone)) } ?: "")
     status == DoseStatus.SKIPPED -> "Skipped"
     status == DoseStatus.MISSED -> "Missed"
     isDueNow(now) -> "Due now"
@@ -51,7 +54,7 @@ private fun TodayItem.statusText(now: Instant, zone: ZoneId): String = when {
 
 /**
  * A tick box for one dose: ticked = taken. [label] defaults to the dose's status ("Due now", "Taken 2:05 PM");
- * the medications list passes the dose time instead.
+ * the medications list passes the dose time instead. [stacked] puts a small label under the box, for narrow rows.
  */
 @Composable
 fun DoseCheck(
@@ -60,7 +63,8 @@ fun DoseCheck(
     zone: ZoneId,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    label: String = item.statusText(now, zone),
+    stacked: Boolean = false,
+    label: String = item.statusText(now, zone, separator = if (stacked) "\n" else " "),
 ) {
     val colors = MaterialTheme.medColors
     val taken = item.status == DoseStatus.TAKEN
@@ -70,18 +74,24 @@ fun DoseCheck(
         item.isDueNow(now) -> colors.amber
         else -> colors.inkMuted
     }
-    Row(
-        modifier
-            .heightIn(min = 48.dp)
-            .toggleable(value = taken, role = Role.Checkbox, onValueChange = onCheckedChange)
-            .padding(end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val labelColor = if (taken) colors.taken else if (tone == colors.inkMuted) colors.inkMuted else colors.ink
+    val box = @Composable {
         Checkbox(
             checked = taken,
-            onCheckedChange = null, // the whole row toggles, so the label is part of the touch target
+            onCheckedChange = null, // the whole control toggles, so the label is part of the touch target
             colors = CheckboxDefaults.colors(checkedColor = colors.taken, uncheckedColor = tone, checkmarkColor = colors.paper),
         )
-        Text(label, style = MaterialTheme.typography.bodyMedium.tabular(), color = if (taken) colors.taken else if (tone == colors.inkMuted) colors.inkMuted else colors.ink)
+    }
+    val toggle = modifier.heightIn(min = 48.dp).toggleable(value = taken, role = Role.Checkbox, onValueChange = onCheckedChange)
+    if (stacked) {
+        Column(toggle.widthIn(min = 56.dp, max = 88.dp).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            box()
+            Text(label, style = MaterialTheme.typography.labelMedium.tabular(), color = labelColor, textAlign = TextAlign.Center)
+        }
+    } else {
+        Row(toggle.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            box()
+            Text(label, style = MaterialTheme.typography.bodyMedium.tabular(), color = labelColor)
+        }
     }
 }

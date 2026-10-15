@@ -115,8 +115,8 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
                 color = if (med.active) colors.ink else colors.inkMuted,
             )
             listOfNotNull(med.subtitle, med.doseLineOn(java.time.LocalDate.now())).joinToString(" · ").ifEmpty { null }?.let {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FormIcon(med.form, Modifier.padding(end = 6.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    FormIcon(med.form, Modifier.padding(top = 1.dp, end = 6.dp))
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
                 }
             }
