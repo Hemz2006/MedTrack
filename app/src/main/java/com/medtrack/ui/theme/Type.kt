@@ -22,23 +22,23 @@ val Newsreader = FontFamily(
 private fun style(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
     TextStyle(fontFamily = Newsreader, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp, letterSpacing = 0.sp)
 
-/** Scale: display 34 / title 23 / heading 18 medium / body 16 / label 14. A serif needs a touch more size than a sans. */
+/** Compact scale: display 28 / title 20 / heading 16 medium / body 14 / label 13. */
 val MedTrackTypography = Typography(
-    displayLarge = style(34, 42, FontWeight.Bold),
-    displayMedium = style(34, 42, FontWeight.Bold),
-    displaySmall = style(34, 42, FontWeight.Bold),
-    headlineLarge = style(23, 30, FontWeight.Bold),
-    headlineMedium = style(23, 30, FontWeight.Bold),
-    headlineSmall = style(23, 30, FontWeight.Bold),
-    titleLarge = style(23, 30, FontWeight.Bold),
-    titleMedium = style(18, 25, FontWeight.Medium),
-    titleSmall = style(16, 23, FontWeight.Medium),
-    bodyLarge = style(16, 24),
-    bodyMedium = style(16, 24),
-    bodySmall = style(14, 20),
-    labelLarge = style(14, 20, FontWeight.Medium),
-    labelMedium = style(14, 20),
-    labelSmall = style(14, 20),
+    displayLarge = style(28, 34, FontWeight.Bold),
+    displayMedium = style(28, 34, FontWeight.Bold),
+    displaySmall = style(28, 34, FontWeight.Bold),
+    headlineLarge = style(20, 26, FontWeight.Bold),
+    headlineMedium = style(20, 26, FontWeight.Bold),
+    headlineSmall = style(20, 26, FontWeight.Bold),
+    titleLarge = style(20, 26, FontWeight.Bold),
+    titleMedium = style(16, 22, FontWeight.Medium),
+    titleSmall = style(14, 20, FontWeight.Medium),
+    bodyLarge = style(14, 20),
+    bodyMedium = style(14, 20),
+    bodySmall = style(13, 18),
+    labelLarge = style(13, 18, FontWeight.Medium),
+    labelMedium = style(13, 18),
+    labelSmall = style(12, 16),
 )
 
 /** Tabular figures, so times line up in a column. */

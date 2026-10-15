@@ -86,7 +86,7 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClickLabel = "Open details", onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        PhotoThumb(med.coverPhoto, med.title, 56.dp, Modifier.alpha(if (med.active) 1f else 0.5f), form = med.form)
+        PhotoThumb(med.coverPhoto, med.title, 44.dp, Modifier.alpha(if (med.active) 1f else 0.5f), form = med.form)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(

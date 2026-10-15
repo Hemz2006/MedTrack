@@ -54,9 +54,9 @@ fun Modifier.dueRule(active: Boolean): Modifier {
 fun GroupHeader(group: TodayGroup, dueNow: Boolean) {
     Text(
         group.label,
-        style = MaterialTheme.typography.titleLarge.tabular(),
+        style = MaterialTheme.typography.titleSmall.tabular(),
         color = MaterialTheme.medColors.ink,
-        modifier = Modifier.fillMaxWidth().dueRule(dueNow).padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 4.dp),
+        modifier = Modifier.fillMaxWidth().dueRule(dueNow).padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 2.dp),
     )
 }
 
@@ -81,14 +81,14 @@ fun DoseRow(
                 onLongClick = onMore,
                 onLongClickLabel = "More actions",
             )
-            .heightIn(min = 64.dp)
+            .heightIn(min = 52.dp)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PhotoThumb(item.medication.coverPhoto, item.medication.title, 48.dp, form = item.medication.form)
+        PhotoThumb(item.medication.coverPhoto, item.medication.title, 40.dp, form = item.medication.form)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(item.medication.displayName(), style = MaterialTheme.typography.titleMedium)
+            Text(item.medication.displayName(), style = MaterialTheme.typography.titleSmall)
             detailLine(item, zone)?.let {
                 Row(verticalAlignment = Alignment.Top) {
                     FormIcon(item.medication.form, Modifier.padding(top = 1.dp, end = 6.dp))

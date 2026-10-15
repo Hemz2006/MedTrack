@@ -132,14 +132,16 @@ fun TodayScreen(
     val context = LocalContext.current
     var resumes by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumes++ }
-    var warnings by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    var warnings by remember { mutableStateOf(emptyList<SetupWarning>()) }
     LaunchedEffect(resumes) {
         val status = readSetupStatus(context, c.health)
         val hasMealMeds = c.db.medicationDao().active().any { it.steps.hasMealRule }
         warnings = buildList {
-            if (!status.notifications || !status.exactAlarms) add("Reminders may not ring" to "Finish setup in Settings so alarms can go off.")
-            if (hasMealMeds && status.health != HealthStatus.CONNECTED) {
-                add("Meal reminders use their fallback times" to "Health Connect isn't connected, so logged meals can't trigger them.")
+            if (!status.notifications || !status.exactAlarms) {
+                add(SetupWarning("Reminders may not ring", "Finish setup in Settings so alarms can go off.", closable = false))
+            }
+            if (hasMealMeds && status.health != HealthStatus.CONNECTED && !c.prefs.healthWarningHidden) {
+                add(SetupWarning("Meal reminders use their fallback times", "Health Connect isn't connected, so logged meals can't trigger them.", closable = true))
             }
         }
     }
@@ -187,10 +189,12 @@ fun TodayScreen(
             HorizontalDivider(color = MaterialTheme.medColors.foil)
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
                 if (s.isToday) {
-                    items(warnings) { (title, detail) ->
+                    items(warnings, key = { it.title }) { warning ->
                         MedAlert(
-                            AlertTone.WARNING, title, Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                            description = detail, actionLabel = "Fix", onAction = onOpenSettings,
+                            AlertTone.WARNING, warning.title, Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            description = warning.detail, actionLabel = "Fix", onAction = onOpenSettings,
+                            // Closing the Health Connect alert hides it for good; it is optional, unlike working alarms.
+                            onDismiss = if (warning.closable) ({ c.prefs.healthWarningHidden = true; warnings = warnings - warning }) else null,
                         )
                     }
                 }
@@ -245,3 +249,5 @@ private fun EmptyDay(hasMedications: Boolean, isToday: Boolean, onAddMedication:
     }
 }
 
+/** A setup problem shown at the top of Today. [closable] ones can be hidden for good. */
+private data class SetupWarning(val title: String, val detail: String, val closable: Boolean)

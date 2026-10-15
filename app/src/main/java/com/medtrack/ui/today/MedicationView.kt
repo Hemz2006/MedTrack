@@ -65,12 +65,12 @@ fun MedicationDayCard(
 ) {
     val med = day.medication
     val date = day.items.first().dueAt.atZone(zone).toLocalDate()
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PhotoThumb(med.coverPhoto, med.displayName(), 48.dp, form = med.form)
+            PhotoThumb(med.coverPhoto, med.displayName(), 40.dp, form = med.form)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(med.displayName(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(med.displayName(), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 med.doseLineOn(date)?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         FormIcon(med.form, Modifier.padding(end = 6.dp))
@@ -108,8 +108,8 @@ private fun DoseTile(item: TodayItem, now: Instant, zone: ZoneId, onTick: (Boole
     }
     Column(
         Modifier
-            .widthIn(min = 96.dp)
-            .heightIn(min = 52.dp)
+            .widthIn(min = 76.dp)
+            .heightIn(min = 44.dp)
             .clip(LabelShape)
             .then(if (taken) Modifier.background(colors.taken) else Modifier.border(BorderStroke(if (note == null) 1.dp else 2.dp, edge), LabelShape))
             .combinedClickable(onClick = { onTick(!taken) }, onLongClick = onMore)
@@ -120,18 +120,18 @@ private fun DoseTile(item: TodayItem, now: Instant, zone: ZoneId, onTick: (Boole
                 stateDescription = spoken
                 onLongClick("More actions") { onMore(); true }
             }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (taken) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = colors.paper, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.Check, contentDescription = null, tint = colors.paper, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(3.dp))
             }
             Text(
                 time,
-                style = MaterialTheme.typography.titleMedium.tabular(),
+                style = MaterialTheme.typography.titleSmall.tabular(),
                 color = when {
                     taken -> colors.paper
                     item.status == DoseStatus.SKIPPED -> colors.inkMuted
@@ -143,7 +143,7 @@ private fun DoseTile(item: TodayItem, now: Instant, zone: ZoneId, onTick: (Boole
         sub?.let {
             Text(
                 it,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = when {
                     taken -> colors.paper
                     item.status == DoseStatus.MISSED -> colors.missed

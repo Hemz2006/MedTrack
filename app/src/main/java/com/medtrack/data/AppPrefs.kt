@@ -22,7 +22,13 @@ class AppPrefs(context: Context) {
         get() = prefs.getString(KEY_TODAY_VIEW, null) ?: "time"
         set(value) = prefs.edit().putString(KEY_TODAY_VIEW, value).apply()
 
+    /** The user closed Today's "meal reminders use their fallback times" alert; don't show it again. */
+    var healthWarningHidden: Boolean
+        get() = prefs.getBoolean(KEY_HEALTH_WARNING_HIDDEN, false)
+        set(value) = prefs.edit().putBoolean(KEY_HEALTH_WARNING_HIDDEN, value).apply()
+
     private companion object {
+        const val KEY_HEALTH_WARNING_HIDDEN = "healthWarningHidden"
         const val KEY_LAST_SCAN = "lastScanAt"
         const val KEY_SETUP_DONE = "setupDone"
         const val KEY_TODAY_VIEW = "todayView"

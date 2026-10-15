@@ -64,7 +64,7 @@ fun PillNavigation(items: List<PillNavItem>, selectedId: String?, onSelect: (Str
     // Each tab's left edge and width inside the bar, measured as laid out, so the pill can fit any label.
     val bounds = remember { mutableStateMapOf<Int, Pair<Dp, Dp>>() }
     Box(
-        modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(vertical = 12.dp),
+        modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Surface(shape = CircleShape, color = Bar, border = BorderStroke(1.dp, BarBorder), shadowElevation = 8.dp) {
@@ -73,7 +73,7 @@ fun PillNavigation(items: List<PillNavItem>, selectedId: String?, onSelect: (Str
                     val x by animateDpAsState(left, morph(), label = "pill x")
                     val w by animateDpAsState(width, morph(), label = "pill width")
                     Box(
-                        Modifier.offset(x = x).size(w, 44.dp)
+                        Modifier.offset(x = x).size(w, 40.dp)
                             .shadow(4.dp, CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
                             .background(Pill, CircleShape),
                     )
@@ -91,9 +91,9 @@ fun PillNavigation(items: List<PillNavItem>, selectedId: String?, onSelect: (Str
                                     with(density) { bounds[index] = c.positionInParent().x.toDp() to c.size.width.toDp() }
                                 }
                                 .scale(press)
-                                .heightIn(min = 44.dp)
+                                .heightIn(min = 40.dp)
                                 .selectable(selected = active, interactionSource = interaction, indication = null, role = Role.Tab) { onSelect(item.id) }
-                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                                .padding(horizontal = 18.dp, vertical = 10.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(

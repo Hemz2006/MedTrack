@@ -57,10 +57,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // EasyUI Gooey Menu, scaled to sit in Today's header: pill, gap, row height and panel padding.
-private val WIDTH: Dp = 160.dp
-private val PILL_H: Dp = 44.dp
-private val GAP: Dp = 10.dp
-private val ROW_H: Dp = 44.dp
+private val WIDTH: Dp = 148.dp
+private val PILL_H: Dp = 38.dp
+private val GAP: Dp = 8.dp
+private val ROW_H: Dp = 40.dp
 private val PANEL_PAD: Dp = 8.dp
 private val PANEL_RADIUS: Dp = 22.dp
 

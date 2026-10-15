@@ -11,6 +11,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -112,19 +113,22 @@ fun MedAlert(
             border = BorderStroke(1.dp, look.border),
             modifier = modifier.fillMaxWidth().semantics { liveRegion = if (urgent) LiveRegionMode.Assertive else LiveRegionMode.Polite },
         ) {
-            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
                 Icon(painterResource(look.glyph), contentDescription = null, tint = look.icon, modifier = Modifier.padding(top = 3.dp).size(16.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.medColors.ink)
-                    description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted) }
-                }
-                if (actionLabel != null && onAction != null) {
-                    TextButton(onClick = onAction, modifier = Modifier.align(Alignment.CenterVertically)) { Text(actionLabel) }
+                    description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.medColors.inkMuted) }
+                    // Under the text rather than beside it, so the message keeps the full width.
+                    if (actionLabel != null && onAction != null) {
+                        TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)) {
+                            Text(actionLabel, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 }
                 if (onDismiss != null) {
                     // EasyUI's 28dp close button, inside a 48dp touch area.
                     Box(
-                        Modifier.size(48.dp).padding(10.dp).clip(RoundedCornerShape(8.dp))
+                        Modifier.size(40.dp).padding(6.dp).clip(RoundedCornerShape(8.dp))
                             .clickable(role = Role.Button, onClickLabel = "Dismiss") { visible.targetState = false },
                         contentAlignment = Alignment.Center,
                     ) { Icon(Icons.Default.Close, "Dismiss", tint = MaterialTheme.medColors.inkMuted, modifier = Modifier.size(16.dp)) }

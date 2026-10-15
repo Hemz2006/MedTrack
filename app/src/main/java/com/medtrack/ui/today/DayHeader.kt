@@ -74,7 +74,7 @@ internal fun DayControls(
     onView: (TodayView) -> Unit,
 ) {
     var picking by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { onDate(date.minusDays(1)) }) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous day")
         }
@@ -108,32 +108,32 @@ internal fun DayRing(date: LocalDate, progress: DayProgress, hasDoses: Boolean) 
         else -> "${progress.taken} of ${progress.total} doses taken"
     }
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(112.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+        Box(Modifier.size(80.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
                 progress = { if (hasDoses) fill else 0f },
                 modifier = Modifier.fillMaxSize(),
                 color = if (done) colors.taken else colors.amber,
                 trackColor = colors.foil,
-                strokeWidth = 8.dp,
+                strokeWidth = 6.dp,
                 strokeCap = StrokeCap.Round,
                 gapSize = 0.dp,
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(WEEKDAY.format(date), style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
-                Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.displaySmall.tabular(), color = colors.ink)
+                Text(WEEKDAY.format(date), style = MaterialTheme.typography.labelSmall, color = colors.inkMuted)
+                Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.headlineMedium.tabular(), color = colors.ink)
             }
         }
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 DAY_HEADING.format(date),
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() },
             )
-            status?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = if (done) colors.taken else colors.inkMuted) }
+            status?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (done) colors.taken else colors.inkMuted) }
         }
     }
 }
