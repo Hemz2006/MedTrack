@@ -275,7 +275,7 @@ private fun TimesEditor(times: List<LocalTime>, onChange: (List<LocalTime>) -> U
             leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) },
         )
     }
-    Text("Or spread through the day (8 AM – 10 PM):", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
+    Text("Or spread through the day (6 AM – 10 PM):", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         (1..6).forEach { n ->
             FilterChip(

@@ -66,18 +66,18 @@ class StepsTest {
 
     @Test fun describesStepsInWords() {
         assertEquals(
-            "13 Oct – 26 Oct: 2 puffs, Daily at 8:00 AM, 11:00 AM, 1:30 PM, 4:30 PM, 7:00 PM, 10:00 PM\n" +
-                "From 27 Oct: 2 puffs, Daily at 8:00 AM, 12:30 PM, 5:30 PM, 10:00 PM",
+            "13 Oct – 26 Oct: 2 puffs, Daily at 6:00 AM, 9:00 AM, 12:30 PM, 3:30 PM, 7:00 PM, 10:00 PM\n" +
+                "From 27 Oct: 2 puffs, Daily at 6:00 AM, 11:30 AM, 4:30 PM, 10:00 PM",
             taper.describeSteps(),
         )
-        assertEquals("Dose 2 of 2: 2 puffs, Daily at 8:00 AM, 12:30 PM, 5:30 PM, 10:00 PM", taper.describeOn(d("2026-10-30")))
-        assertEquals("Dose 1 of 2: 2 puffs, Daily at 8:00 AM, 11:00 AM, 1:30 PM, 4:30 PM, 7:00 PM, 10:00 PM, until 26 Oct", taper.describeOn(d("2026-10-01")))
+        assertEquals("Dose 2 of 2: 2 puffs, Daily at 6:00 AM, 11:30 AM, 4:30 PM, 10:00 PM", taper.describeOn(d("2026-10-30")))
+        assertEquals("Dose 1 of 2: 2 puffs, Daily at 6:00 AM, 9:00 AM, 12:30 PM, 3:30 PM, 7:00 PM, 10:00 PM, until 26 Oct", taper.describeOn(d("2026-10-01")))
     }
 
-    @Test fun spreadTimesCoverEightToTenToTheHalfHour() {
-        assertEquals(listOf(LocalTime.of(8, 0)), spreadTimes(1))
-        assertEquals(listOf(LocalTime.of(8, 0), LocalTime.of(22, 0)), spreadTimes(2))
-        assertEquals(listOf(LocalTime.of(8, 0), LocalTime.of(15, 0), LocalTime.of(22, 0)), spreadTimes(3))
+    @Test fun spreadTimesCoverSixToTenToTheHalfHour() {
+        assertEquals(listOf(LocalTime.of(6, 0)), spreadTimes(1))
+        assertEquals(listOf(LocalTime.of(6, 0), LocalTime.of(22, 0)), spreadTimes(2))
+        assertEquals(listOf(LocalTime.of(6, 0), LocalTime.of(14, 0), LocalTime.of(22, 0)), spreadTimes(3))
         assertEquals(6, spreadTimes(6).size)
     }
 }

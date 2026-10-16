@@ -50,11 +50,11 @@ fun ScheduleRule.withKind(kind: ScheduleKind, startDate: LocalDate): ScheduleRul
     }
 }
 
-/** [count] doses spread evenly from 8 AM to 10 PM, to the nearest half hour ("6 times a day"). */
+/** [count] doses spread evenly from 6 AM to 10 PM, to the nearest half hour ("6 times a day"). */
 fun spreadTimes(count: Int): List<LocalTime> {
-    if (count <= 1) return listOf(LocalTime.of(8, 0))
-    val first = 8 * 60
-    val span = 14 * 60
+    if (count <= 1) return listOf(LocalTime.of(6, 0))
+    val first = 6 * 60
+    val span = 16 * 60
     return (0 until count).map { i ->
         val minutes = first + span * i / (count - 1)
         LocalTime.of(0, 0).plusMinutes(((minutes + 15) / 30 * 30).toLong())
