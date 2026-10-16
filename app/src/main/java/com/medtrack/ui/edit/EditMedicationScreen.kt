@@ -1,18 +1,14 @@
 package com.medtrack.ui.edit
 
 import com.medtrack.ui.common.PhotoCropFlow
+import com.medtrack.ui.common.rememberPhotoSources
 import com.medtrack.ui.common.MedAlert
 import com.medtrack.ui.common.AlertTone
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,29 +35,23 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medtrack.AppContainer
 import com.medtrack.data.Ingredient
 import com.medtrack.data.MedicationEntity
 import com.medtrack.data.SourceStatus
 import com.medtrack.lookup.Brand
-import com.medtrack.ui.common.PhotoThumb
 import com.medtrack.ui.common.ScreenScaffold
 import com.medtrack.ui.common.containerViewModel
 import com.medtrack.ui.theme.LabelShape
 import com.medtrack.ui.theme.medColors
-import java.io.File
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -70,20 +60,7 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.saved) { if (state.saved) onDone() }
 
-    val context = LocalContext.current
-    var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        if (ok) cameraUri?.let { vm.addPhotos(listOf(it)) }
-    }
-    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
-        vm.addPhotos(uris)
-    }
-    fun launchCamera() {
-        val file = File(File(context.cacheDir, "camera").apply { mkdirs() }, "capture.jpg")
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-        cameraUri = uri
-        camera.launch(uri)
-    }
+    val photoSources = rememberPhotoSources(vm::addPhotos)
 
     val med = state.med
     ScreenScaffold(
@@ -153,8 +130,7 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
                 PhotosEditor(
                     photos = med.photos,
                     name = med.genericName.ifBlank { "Medication" },
-                    onCamera = ::launchCamera,
-                    onGallery = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    sources = photoSources,
                     onRemove = vm::removePhoto,
                     onMakeMain = vm::makeMainPhoto,
                 )

@@ -15,13 +15,14 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.medtrack.ui.common.PhotoSourceButtons
+import com.medtrack.ui.common.PhotoSources
 import com.medtrack.ui.common.PhotoThumb
 import com.medtrack.ui.theme.medColors
 
@@ -31,8 +32,7 @@ import com.medtrack.ui.theme.medColors
 fun PhotosEditor(
     photos: List<String>,
     name: String,
-    onCamera: () -> Unit,
-    onGallery: () -> Unit,
+    sources: PhotoSources,
     onRemove: (String) -> Unit,
     onMakeMain: (String) -> Unit,
 ) {
@@ -67,9 +67,6 @@ fun PhotosEditor(
                 }
             }
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onCamera) { Text("Camera") }
-            OutlinedButton(onClick = onGallery) { Text("Gallery") }
-        }
+        PhotoSourceButtons(sources)
     }
 }
