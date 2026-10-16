@@ -1,5 +1,21 @@
 package com.medtrack.ui.detail
 
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Add
+import kotlinx.coroutines.CancellationException
+import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.rememberLauncherForActivityResult
 import com.medtrack.data.doseLineOn
 import com.medtrack.data.subtitle
 import com.medtrack.data.title
@@ -74,6 +90,25 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // Photos picked here are added straight to the medication; the first one becomes its main photo if it had none.
+    val addPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        c.appScope.launch {
+            val added = uris.mapNotNull { uri ->
+                try {
+                    c.photos.importFrom(uri)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("MedTrack", "Couldn't add a photo", e)
+                    null
+                }
+            }
+            val current = c.db.medicationDao().get(id)
+            if (current == null) added.forEach(c.photos::delete) else c.medications.save(current.copy(photos = current.photos + added))
+        }
+    }
+    val pickPhotos = { addPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
     val m = med ?: return
     val zone = ZoneId.systemDefault()
     val days = remember(logs) { historyByDay(logs, LocalDate.now(zone), zone) }
@@ -85,7 +120,20 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
         actions = { IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, "Edit") } },
     ) { padding ->
         LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            if (m.photos.isNotEmpty()) item { PhotoGallery(m.photos, m.title) }
+            item {
+                if (m.photos.isEmpty()) {
+                    AddPhotosBox(pickPhotos)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PhotoGallery(m.photos, m.title)
+                        OutlinedButton(onClick = pickPhotos) {
+                            Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add photos")
+                        }
+                    }
+                }
+            }
             item { LabelBlock(m) }
             item { MyNotesAndSchedule(m) }
             item {
@@ -279,5 +327,37 @@ private fun HistoryDayRow(day: HistoryDay, zone: ZoneId) {
                 }
             }
         }
+    }
+}
+
+/** Shown where the photo goes when there isn't one yet: a dashed box that invites a photo of the strip or box. */
+@Composable
+private fun AddPhotosBox(onClick: () -> Unit) {
+    val colors = MaterialTheme.medColors
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 7f)
+            .clip(LabelShape)
+            .drawBehind {
+                drawRoundRect(
+                    color = colors.inkMuted,
+                    style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))),
+                    cornerRadius = CornerRadius(6.dp.toPx()),
+                )
+            }
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(Icons.Default.Add, null, tint = colors.ink, modifier = Modifier.size(28.dp))
+        Text("Add photos", style = MaterialTheme.typography.titleSmall, color = colors.ink)
+        Text(
+            "A photo of the strip or box helps you recognise it",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.inkMuted,
+            textAlign = TextAlign.Center,
+        )
     }
 }
