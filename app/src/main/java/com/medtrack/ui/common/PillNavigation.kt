@@ -1,5 +1,6 @@
 package com.medtrack.ui.common
 
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.layout.asPaddingValues
 import com.medtrack.ui.theme.medColors
 import androidx.compose.ui.graphics.luminance
@@ -93,7 +94,7 @@ fun PillNavigation(items: List<PillNavItem>, selectedId: String?, onSelect: (Str
                     val x by animateDpAsState(left, morph(), label = "pill x")
                     val w by animateDpAsState(width, morph(), label = "pill width")
                     Box(
-                        Modifier.offset(x = x).size(w, height)
+                        Modifier.offset { IntOffset(x.roundToPx(), 0) }.size(w, height)
                             .shadow(4.dp, CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
                             .background(colors.pill, CircleShape),
                     )

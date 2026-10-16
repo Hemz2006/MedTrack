@@ -58,7 +58,6 @@ import com.medtrack.schedule.withAddedRule
 import com.medtrack.schedule.withKind
 import com.medtrack.schedule.withMeal
 import com.medtrack.schedule.withRule
-import com.medtrack.schedule.withStartDate
 import com.medtrack.schedule.withoutRule
 import com.medtrack.ui.theme.LabelShape
 import com.medtrack.ui.theme.medColors

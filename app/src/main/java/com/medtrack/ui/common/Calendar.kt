@@ -143,7 +143,7 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, today: LocalDate, a
             val index = leading + selected.dayOfMonth - 1
             val x by animateDpAsState(CELL * (index % 7), glide(), label = "pill x")
             val y by animateDpAsState(CELL * (index / 7), glide(), label = "pill y")
-            Box(Modifier.offset(x, y).size(CELL).padding(2.dp).background(colors.ink, CELL_SHAPE))
+            Box(Modifier.offset { IntOffset(x.roundToPx(), y.roundToPx()) }.size(CELL).padding(2.dp).background(colors.ink, CELL_SHAPE))
         }
         for (day in 1..month.lengthOfMonth()) {
             val date = month.atDay(day)
