@@ -47,18 +47,18 @@ import androidx.compose.ui.unit.dp
 
 data class PillNavItem(val id: String, val label: String)
 
-/** The island's colours: see-through so the page shows behind it. */
+/** The island's colours: a solid bar, so labels stay readable over whatever scrolls beneath. */
 private class IslandColors(val bar: Color, val border: Color, val pill: Color, val active: Color, val idle: Color)
 
 @Composable
 private fun islandColors(): IslandColors {
     val m = MaterialTheme.medColors
     return if (m.paper.luminance() < 0.5f) {
-        // EasyUI's palette (near-black bar, white pill, grey labels), with the bar made translucent.
-        IslandColors(Color(0xFF050505).copy(alpha = 0.55f), Color(0xFF1F1F1F).copy(alpha = 0.7f), Color(0xFFFAFAFA), Color(0xFF050505), Color(0xFFA1A1A1))
+        // EasyUI's palette: near-black bar, white pill, grey labels.
+        IslandColors(Color(0xFF050505), Color(0xFF1F1F1F), Color(0xFFFAFAFA), Color(0xFF050505), Color(0xFFA1A1A1))
     } else {
-        // Light theme: frosted white with the green ink as the pill.
-        IslandColors(Color.White.copy(alpha = 0.6f), m.foil.copy(alpha = 0.9f), m.ink, Color.White, m.inkMuted)
+        // Light theme: white with the green ink as the pill.
+        IslandColors(Color.White, m.foil, m.ink, Color.White, m.inkMuted)
     }
 }
 
@@ -73,7 +73,7 @@ val NavIslandClearance: Dp = 72.dp
 fun islandBottom(): Dp = NavIslandClearance + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
 /**
- * A floating, see-through segmented "island" of pages; the page scrolls underneath it. The white pill morphs across — sliding and resizing — to the page
+ * A floating segmented "island" of pages; the page scrolls underneath it. The white pill morphs across — sliding and resizing — to the page
  * you tap; each tab shrinks slightly while pressed.
  */
 @Composable
@@ -87,7 +87,7 @@ fun PillNavigation(items: List<PillNavItem>, selectedId: String?, onSelect: (Str
         modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Surface(shape = CircleShape, color = colors.bar, border = BorderStroke(1.dp, colors.border)) {
+        Surface(shape = CircleShape, color = colors.bar, border = BorderStroke(1.dp, colors.border), shadowElevation = 8.dp) {
             Box(Modifier.padding(4.dp)) {
                 bounds[selected]?.let { (left, width, height) ->
                     val x by animateDpAsState(left, morph(), label = "pill x")

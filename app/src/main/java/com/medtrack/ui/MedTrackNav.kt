@@ -48,7 +48,7 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    // The island floats over the pages (it's see-through), rather than taking a strip of the screen.
+    // The island floats over the pages rather than taking a full-width strip of the screen.
     Box(Modifier.fillMaxSize()) {
         NavHost(nav, startDestination = if (startOnSetup) Routes.SETTINGS else Routes.TODAY, modifier = Modifier.fillMaxSize()) {
             composable(Routes.TODAY) {
