@@ -19,10 +19,10 @@ class ScheduleEditingTest {
         assertEquals(setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY), rule.days)
     }
 
-    @Test fun switchingToIntervalAnchorsAtFirstTimeOnStartDate() {
+    @Test fun switchingToIntervalStartsAt6AmOnStartDate() {
         val rule = dailyRule.withKind(ScheduleKind.INTERVAL, start) as ScheduleRule.EveryNHours
         assertEquals(8, rule.intervalHours)
-        assertEquals(LocalDateTime.parse("2026-10-13T09:00"), rule.anchor)
+        assertEquals(LocalDateTime.parse("2026-10-13T06:00"), rule.anchor)
     }
 
     @Test fun switchingToAfterMealUsesDefaults() =
@@ -33,7 +33,7 @@ class ScheduleEditingTest {
     @Test fun startDateMovesIntervalAnchors() {
         val interval = Schedule(dailyRule.withKind(ScheduleKind.INTERVAL, start), start).withStartDate(LocalDate.parse("2026-10-20"))
         assertEquals(LocalDate.parse("2026-10-20"), interval.startDate)
-        assertEquals(LocalDateTime.parse("2026-10-20T09:00"), (interval.rules.single() as ScheduleRule.EveryNHours).anchor)
+        assertEquals(LocalDateTime.parse("2026-10-20T06:00"), (interval.rules.single() as ScheduleRule.EveryNHours).anchor)
     }
 
     @Test fun addingAfterAMealRuleSuggestsTheNextMeal() {

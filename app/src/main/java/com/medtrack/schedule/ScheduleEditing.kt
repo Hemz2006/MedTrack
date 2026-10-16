@@ -28,6 +28,9 @@ fun defaultFallback(meal: MealType): LocalTime = when (meal) {
 fun ScheduleRule.AfterMeal.withMeal(meal: MealType): ScheduleRule.AfterMeal =
     copy(meal = meal, fallbackTime = if (fallbackTime == defaultFallback(this.meal)) defaultFallback(meal) else fallbackTime)
 
+/** An every-N-hours rule's first dose until the user picks another time. */
+val INTERVAL_FIRST_DOSE: LocalTime = LocalTime.of(6, 0)
+
 /** Switches the rule's type, carrying over the dose times where the new type has them. */
 fun ScheduleRule.withKind(kind: ScheduleKind, startDate: LocalDate): ScheduleRule {
     if (this.kind == kind) return this
@@ -41,7 +44,8 @@ fun ScheduleRule.withKind(kind: ScheduleKind, startDate: LocalDate): ScheduleRul
         ScheduleKind.WEEKDAYS -> ScheduleRule.Weekdays(
             setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY), times,
         )
-        ScheduleKind.INTERVAL -> ScheduleRule.EveryNHours(8, startDate.atTime(times.min()))
+        // Starts early, so the day's doses fit before midnight.
+        ScheduleKind.INTERVAL -> ScheduleRule.EveryNHours(8, startDate.atTime(INTERVAL_FIRST_DOSE))
         ScheduleKind.AFTER_MEAL -> ScheduleRule.AfterMeal(MealType.BREAKFAST, 0, defaultFallback(MealType.BREAKFAST))
     }
 }
