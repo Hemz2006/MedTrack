@@ -30,9 +30,16 @@ fun ScheduleRule.describe(): String =
                 .joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.ENGLISH) }
             "$days at ${r.times.sorted().joinToString(", ") { it.format(HM) }}"
         }
-        is ScheduleRule.EveryNHours -> "Every ${r.intervalHours} h from ${r.anchor.toLocalTime().format(HM)}"
+        is ScheduleRule.EveryNHours -> "Every ${r.intervalHours} h: ${r.dailyTimes().joinToString(", ") { it.format(HM) }}"
         is ScheduleRule.AfterMeal -> {
             val delay = if (r.delayMinutes == 0) "Right" else "${r.delayMinutes} min"
             "$delay after ${mealName(r.meal)} (by ${r.fallbackTime.format(HM)})"
         }
     }
+
+/** An every-N-hours rule's times in each day's cycle, from the first dose (some may fall after midnight). */
+fun ScheduleRule.EveryNHours.dailyTimes(): List<java.time.LocalTime> {
+    if (intervalHours <= 0) return emptyList()
+    val first = anchor.toLocalTime()
+    return (0 until (24 + intervalHours - 1) / intervalHours).map { first.plusHours(it.toLong() * intervalHours) }
+}

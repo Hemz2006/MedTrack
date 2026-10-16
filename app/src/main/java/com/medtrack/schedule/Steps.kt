@@ -28,11 +28,11 @@ fun List<Schedule>.stepsValidationError(): String? {
     if (isEmpty()) return "Add at least one schedule"
     forEachIndexed { i, step ->
         val error = step.validationError() ?: return@forEachIndexed
-        return if (size == 1) error else "Step ${i + 1}: $error"
+        return if (size == 1) error else "Dose ${i + 1}: $error"
     }
     for (i in 0 until size - 1) {
-        val end = this[i].endDate ?: return "Step ${i + 1}: set how long it lasts"
-        if (this[i + 1].startDate <= end) return "Step ${i + 2} starts before step ${i + 1} ends"
+        val end = this[i].endDate ?: return "Dose ${i + 1}: set for how many days"
+        if (this[i + 1].startDate <= end) return "Dose ${i + 2} starts before dose ${i + 1} ends"
     }
     return null
 }
@@ -53,7 +53,7 @@ private fun Schedule.describeAsStep(last: Boolean): String {
 
 /**
  * The step that matters on [date] (running now, else the next to start, else the last), described in one line,
- * with "step 2 of 3" when there are several.
+ * with "dose 2 of 3" when there are several.
  */
 fun List<Schedule>.describeOn(date: LocalDate): String {
     if (size == 1) return single().describe()
@@ -63,7 +63,7 @@ fun List<Schedule>.describeOn(date: LocalDate): String {
     val step = this[index]
     val dose = step.dose?.takeIf { it.isNotBlank() }?.let { "$it, " }.orEmpty()
     val until = step.endDate?.let { ", until ${it.format(DAY_MONTH)}" }.orEmpty()
-    return "Step ${index + 1} of $size: $dose${step.rules.joinToString("; ") { it.describe() }}$until"
+    return "Dose ${index + 1} of $size: $dose${step.rules.joinToString("; ") { it.describe() }}$until"
 }
 
 // Editing. Every change re-chains the later steps so they keep their lengths and stay back to back.

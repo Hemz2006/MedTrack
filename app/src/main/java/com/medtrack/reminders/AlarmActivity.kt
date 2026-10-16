@@ -1,5 +1,8 @@
 package com.medtrack.reminders
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.Alignment
 import com.medtrack.ui.common.FormIcon
@@ -49,9 +52,7 @@ import com.medtrack.data.displayName
 import com.medtrack.ui.common.PhotoHeader
 import com.medtrack.ui.common.PhotoThumb
 import com.medtrack.ui.common.TIME
-import com.medtrack.ui.theme.LightMedColors
 import com.medtrack.ui.theme.MedTrackTheme
-import com.medtrack.ui.theme.medColors
 import com.medtrack.ui.theme.tabular
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -61,11 +62,10 @@ import java.time.ZoneId
 /** Full-screen alarm shown over the lock screen; lists every dose ringing right now. */
 class AlarmActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Dark text on amber in both modes, so the system bar icons are dark too.
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(TRANSPARENT, TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.light(TRANSPARENT, TRANSPARENT),
-        )
+        // System bar icons match the alarm's text: dark on amber, light on the darker colours.
+        val darkText = Color(container.uiSettings.value.alarmColor.content).luminance() < 0.5f
+        val bars = if (darkText) SystemBarStyle.light(TRANSPARENT, TRANSPARENT) else SystemBarStyle.dark(TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
@@ -87,24 +87,28 @@ private fun AlarmScreen(c: AppContainer, onEmpty: () -> Unit) {
 
     LaunchedEffect(due) { if (due?.isEmpty() == true) onEmpty() }
     val items = due ?: return
-    val onAmber = MaterialTheme.medColors.onAmber
+    val settings by c.uiSettings.collectAsStateWithLifecycle()
+    val background = Color(settings.alarmColor.background)
+    val content = Color(settings.alarmColor.content)
 
-    Surface(color = MaterialTheme.medColors.amber, contentColor = onAmber, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.safeDrawingPadding().padding(horizontal = 16.dp)) {
-            Text(
-                "Time for your medication",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 16.dp, bottom = 16.dp).semantics { heading() },
-            )
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
-                itemsIndexed(items, key = { _, it -> it.first.id }) { index, (log, med) ->
-                    if (index > 0) HorizontalDivider(Modifier.padding(vertical = 24.dp), thickness = 2.dp, color = onAmber.copy(alpha = 0.3f))
-                    AlarmDose(c, log, med, single = items.size == 1)
+    Surface(color = background, contentColor = content, modifier = Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalAlarmBackground provides background) {
+            Column(Modifier.safeDrawingPadding().padding(horizontal = 16.dp)) {
+                Text(
+                    "Time for your medication",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 16.dp).semantics { heading() },
+                )
+                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+                    itemsIndexed(items, key = { _, it -> it.first.id }) { index, (log, med) ->
+                        if (index > 0) HorizontalDivider(Modifier.padding(vertical = 24.dp), thickness = 2.dp, color = content.copy(alpha = 0.3f))
+                        AlarmDose(c, log, med, single = items.size == 1)
+                    }
                 }
-            }
-            if (items.size > 1) {
-                AlarmPrimaryButton("Take all", Modifier.padding(bottom = 16.dp)) {
-                    c.appScope.launch { c.engine.markAllTaken(items.map { it.first.id }) }
+                if (items.size > 1) {
+                    AlarmPrimaryButton("Take all", Modifier.padding(bottom = 16.dp)) {
+                        c.appScope.launch { c.engine.markAllTaken(items.map { it.first.id }) }
+                    }
                 }
             }
         }
@@ -132,23 +136,27 @@ private fun AlarmDose(c: AppContainer, log: DoseLogEntity, med: MedicationEntity
     }
 }
 
-/** Ink button with paper text: the dark-on-amber pairing holds in both light and dark mode. */
+/** A solid button in the alarm's text colour, with its background colour for the label. */
 @Composable
 private fun AlarmPrimaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val alarm = LocalContentColor.current
     Button(
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.medColors.onAmber, contentColor = LightMedColors.paper),
+        colors = ButtonDefaults.buttonColors(containerColor = alarm, contentColor = LocalAlarmBackground.current),
         modifier = modifier.fillMaxWidth().heightIn(min = 64.dp),
     ) { Text(label, style = MaterialTheme.typography.titleLarge) }
 }
 
 @Composable
 private fun AlarmSecondaryButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val onAmber = MaterialTheme.medColors.onAmber
+    val content = LocalContentColor.current
     OutlinedButton(
         onClick = onClick,
-        border = BorderStroke(2.dp, onAmber),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = onAmber, containerColor = Color.Transparent),
+        border = BorderStroke(2.dp, content),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = content, containerColor = Color.Transparent),
         modifier = modifier.heightIn(min = 56.dp),
     ) { Text(label, style = MaterialTheme.typography.titleMedium) }
 }
+
+/** The alarm screen's background, for labels drawn on its text-coloured buttons. */
+private val LocalAlarmBackground = compositionLocalOf { Color.Black }

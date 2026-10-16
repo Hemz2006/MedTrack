@@ -84,16 +84,22 @@ fun ScheduleEditor(steps: List<Schedule>, usualDose: String?, onChange: (List<Sc
             val step = steps.single()
             StepRules(step) { onChange(listOf(it)) }
             DateRow("Start date", step.startDate, clearable = false) { it?.let { d -> onChange(steps.withFirstStart(d)) } }
-            DateRow("End date (optional)", step.endDate, clearable = true) { onChange(listOf(step.copy(endDate = it))) }
+            DaysField("For how many days (optional)", step.lengthDays, allowBlank = true) { onChange(steps.withStepLength(0, it)) }
+            LastDay(step)
         } else {
-            steps.forEachIndexed { index, step ->
-                StepBlock(index, steps, usualDose, onChange)
-            }
+            steps.indices.forEach { index -> StepBlock(index, steps, usualDose, onChange) }
         }
         OutlinedButton(onClick = { onChange(steps.withAddedStep()) }, modifier = Modifier.heightIn(min = 48.dp)) {
             Icon(Icons.Default.Add, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(if (steps.size == 1) "Change the dose later (add a step)" else "Add another step")
+            Text("Add a dose")
+        }
+        if (steps.size == 1) {
+            Text(
+                "For a dose that changes later, e.g. 6 times a day for 2 weeks, then 4 times a day.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.medColors.inkMuted,
+            )
         }
     }
 }
@@ -105,11 +111,11 @@ private fun StepBlock(index: Int, steps: List<Schedule>, usualDose: String?, onC
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Step ${index + 1}",
+                "Dose ${index + 1}",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f).semantics { heading() },
             )
-            IconButton(onClick = { onChange(steps.withoutStep(index)) }) { Icon(Icons.Default.Close, "Remove step ${index + 1}") }
+            IconButton(onClick = { onChange(steps.withoutStep(index)) }) { Icon(Icons.Default.Close, "Remove dose ${index + 1}") }
         }
         if (index == 0) {
             DateRow("Starts", step.startDate, clearable = false) { it?.let { d -> onChange(steps.withFirstStart(d)) } }
@@ -117,14 +123,15 @@ private fun StepBlock(index: Int, steps: List<Schedule>, usualDose: String?, onC
             Text("Starts ${step.startDate.format(DATE)}", style = MaterialTheme.typography.bodyLarge)
         }
         DaysField(
-            label = if (last) "Lasts how many days (blank = until stopped)" else "Lasts how many days",
+            label = if (last) "For how many days (blank = until stopped)" else "For how many days",
             days = step.lengthDays,
             allowBlank = last,
         ) { onChange(steps.withStepLength(index, it)) }
+        LastDay(step)
         OutlinedTextField(
             value = step.dose.orEmpty(),
             onValueChange = { onChange(steps.withStep(index, step.copy(dose = it.ifEmpty { null }))) },
-            label = { Text("Dose in this step") },
+            label = { Text("Amount (e.g. 2 puffs)") },
             placeholder = { Text(usualDose?.takeIf { it.isNotBlank() }?.let { "Usual: $it" } ?: "e.g. 2 puffs") },
             singleLine = true,
             colors = fieldColors(),
@@ -152,6 +159,14 @@ private fun StepRules(schedule: Schedule, onChange: (Schedule) -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Add another time or meal")
         }
+    }
+}
+
+/** "Last day: Tue 20 Oct" under a length, so the user sees when the course ends without picking an end date. */
+@Composable
+private fun LastDay(step: Schedule) {
+    step.endDate?.let {
+        Text("Last day: ${it.format(DATE)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
     }
 }
 

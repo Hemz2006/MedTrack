@@ -59,7 +59,7 @@ class ScheduleTest {
     @Test fun describesEachRuleType() {
         assertEquals("Daily at 8:00 AM, 9:00 PM", samples[0].describe())
         assertEquals("Mon, Wed, Fri at 8:00 AM, until 20 Oct", samples[1].describe())
-        assertEquals("Every 6 h from 6:00 AM", samples[2].describe())
+        assertEquals("Every 6 h: 6:00 AM, 12:00 PM, 6:00 PM, 12:00 AM", samples[2].describe())
         assertEquals("30 min after breakfast (by 10:00 AM)", samples[3].describe())
         assertEquals(
             "Right after any meal (by 1:00 PM)",

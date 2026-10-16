@@ -14,7 +14,7 @@ class UiSettingsTest {
     @Test fun defaultsFollowThePhoneAtNormalSize() = assertEquals(UiSettings(), prefs.uiSettings)
 
     @Test fun themeAndSizesAreRemembered() {
-        val chosen = UiSettings(ThemeMode.LIGHT, textScale = 1.3f, sizeScale = 1.2f)
+        val chosen = UiSettings(ThemeMode.LIGHT, textScale = 1.3f, sizeScale = 1.2f, alarmColor = AlarmColor.BLUE)
         prefs.uiSettings = chosen
         assertEquals(chosen, AppPrefs(ApplicationProvider.getApplicationContext<Context>()).uiSettings)
     }

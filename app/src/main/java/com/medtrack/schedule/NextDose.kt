@@ -1,6 +1,5 @@
 package com.medtrack.schedule
 
-import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -70,6 +69,11 @@ private fun nextOnDays(
     return null
 }
 
+/**
+ * Every N hours, restarting each day at the first dose's clock time: every 10 hours from 8 AM is 8 AM, 6 PM and
+ * 4 AM, every day. (Counting straight on from the first dose made intervals that don't divide 24 hours drift to
+ * different times each day.) Intervals that do divide 24 (6, 8, 12) give the same times either way.
+ */
 private fun nextInterval(
     schedule: Schedule,
     rule: ScheduleRule.EveryNHours,
@@ -78,15 +82,20 @@ private fun nextInterval(
     skipDates: Set<LocalDate>,
 ): Instant? {
     if (rule.intervalHours <= 0) return null
-    val anchor = rule.anchor.atZone(zone).toInstant()
-    val step = Duration.ofHours(rule.intervalHours.toLong())
-    var k = if (after < anchor) 0L else Duration.between(anchor, after).toMillis() / step.toMillis() + 1
-    repeat(MAX_DAYS * 24) {
-        val candidate = anchor.plus(step.multipliedBy(k))
-        val date = candidate.atZone(zone).toLocalDate()
-        if (schedule.endDate != null && date > schedule.endDate) return null
-        if (date >= schedule.startDate && date !in skipDates) return candidate
-        k++
+    val firstTime = rule.anchor.toLocalTime()
+    val perDay = (24 + rule.intervalHours - 1) / rule.intervalHours // doses starting less than 24h after the first
+    // A day's last doses can fall after midnight, so start from the day before [after].
+    var day = maxOf(rule.anchor.toLocalDate(), after.atZone(zone).toLocalDate().minusDays(1))
+    repeat(MAX_DAYS) {
+        for (k in 0 until perDay) {
+            val local = day.atTime(firstTime).plusHours(k.toLong() * rule.intervalHours)
+            val candidate = local.atZone(zone).toInstant()
+            if (candidate <= after) continue
+            val date = local.toLocalDate()
+            if (schedule.endDate != null && date > schedule.endDate) return null
+            if (date >= schedule.startDate && date !in skipDates) return candidate
+        }
+        day = day.plusDays(1)
     }
     return null
 }

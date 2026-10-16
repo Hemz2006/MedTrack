@@ -58,9 +58,9 @@ class StepsTest {
 
     @Test fun validationNeedsBackToBackSteps() {
         assertNull(taper.stepsValidationError())
-        assertEquals("Step 1: set how long it lasts", listOf(taper[0].copy(endDate = null), taper[1]).stepsValidationError())
-        assertEquals("Step 2 starts before step 1 ends", listOf(taper[0], taper[1].copy(startDate = start)).stepsValidationError())
-        assertEquals("Step 2: Add at least one time", taper.withStep(1, taper[1].copy(rules = listOf(ScheduleRule.DailyTimes(emptyList())))).stepsValidationError())
+        assertEquals("Dose 1: set for how many days", listOf(taper[0].copy(endDate = null), taper[1]).stepsValidationError())
+        assertEquals("Dose 2 starts before dose 1 ends", listOf(taper[0], taper[1].copy(startDate = start)).stepsValidationError())
+        assertEquals("Dose 2: Add at least one time", taper.withStep(1, taper[1].copy(rules = listOf(ScheduleRule.DailyTimes(emptyList())))).stepsValidationError())
         assertEquals("Add at least one schedule", emptyList<Schedule>().stepsValidationError())
     }
 
@@ -70,8 +70,8 @@ class StepsTest {
                 "From 27 Oct: 2 puffs, Daily at 8:00 AM, 12:30 PM, 5:30 PM, 10:00 PM",
             taper.describeSteps(),
         )
-        assertEquals("Step 2 of 2: 2 puffs, Daily at 8:00 AM, 12:30 PM, 5:30 PM, 10:00 PM", taper.describeOn(d("2026-10-30")))
-        assertEquals("Step 1 of 2: 2 puffs, Daily at 8:00 AM, 11:00 AM, 1:30 PM, 4:30 PM, 7:00 PM, 10:00 PM, until 26 Oct", taper.describeOn(d("2026-10-01")))
+        assertEquals("Dose 2 of 2: 2 puffs, Daily at 8:00 AM, 12:30 PM, 5:30 PM, 10:00 PM", taper.describeOn(d("2026-10-30")))
+        assertEquals("Dose 1 of 2: 2 puffs, Daily at 8:00 AM, 11:00 AM, 1:30 PM, 4:30 PM, 7:00 PM, 10:00 PM, until 26 Oct", taper.describeOn(d("2026-10-01")))
     }
 
     @Test fun spreadTimesCoverEightToTenToTheHalfHour() {

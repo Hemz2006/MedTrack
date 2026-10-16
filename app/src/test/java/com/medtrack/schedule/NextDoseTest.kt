@@ -83,7 +83,8 @@ class NextDoseTest {
 
     @Test fun everyNHoursIsElapsedTimeAcrossDst() {
         val s = Schedule(ScheduleRule.EveryNHours(12, LocalDateTime.parse("2026-10-24T20:00")), LocalDate.parse("2026-10-24"))
-        assertEquals(Instant.parse("2026-10-25T07:00:00Z"), nextDose(s, Instant.parse("2026-10-25T06:00:00Z"), london))
+        // Clock times hold across the change: 8 PM, then 8 AM on the 25th (now GMT, so 08:00Z).
+        assertEquals(Instant.parse("2026-10-25T08:00:00Z"), nextDose(s, Instant.parse("2026-10-25T06:00:00Z"), london))
     }
 
     @Test fun everyNHoursStopsAtEndDate() {
@@ -112,5 +113,15 @@ class NextDoseTest {
             dosesBetween(daily("08:00", "21:00"), at("2026-10-13T00:00"), at("2026-10-14T08:00"), ist),
         )
         assertEquals(emptyList<Instant>(), dosesBetween(daily("08:00"), at("2026-10-13T08:00"), at("2026-10-13T09:00"), ist))
+    }
+
+    @Test fun intervalsThatDontDivideADayRepeatTheSameTimesDaily() {
+        val s = Schedule(ScheduleRule.EveryNHours(10, LocalDateTime.parse("2026-10-13T08:00")), LocalDate.parse("2026-10-13"))
+        val day = { d: String -> dosesBetween(s, at("${d}T00:00"), at("${d}T23:59"), ist) }
+        // 8 AM, 6 PM and (from the day before) 4 AM; the same three times every day, not drifting.
+        assertEquals(listOf(at("2026-10-14T04:00"), at("2026-10-14T08:00"), at("2026-10-14T18:00")), day("2026-10-14"))
+        assertEquals(listOf(at("2026-10-20T04:00"), at("2026-10-20T08:00"), at("2026-10-20T18:00")), day("2026-10-20"))
+        // The first day has no 4 AM dose: the course starts at 8 AM.
+        assertEquals(listOf(at("2026-10-13T08:00"), at("2026-10-13T18:00")), day("2026-10-13"))
     }
 }

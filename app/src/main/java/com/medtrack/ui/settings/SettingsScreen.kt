@@ -1,5 +1,14 @@
 package com.medtrack.ui.settings
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
+import com.medtrack.data.AlarmColor
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -149,6 +158,7 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
             Text("Accessibility", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
             SizeSetting("Text size", UiSettings.TEXT_SCALES, ui.textScale) { v -> c.updateUiSettings { it.copy(textScale = v) } }
             SizeSetting("Buttons and icons", UiSettings.SIZE_SCALES, ui.sizeScale) { v -> c.updateUiSettings { it.copy(sizeScale = v) } }
+            AlarmColorSetting(ui.alarmColor) { color -> c.updateUiSettings { it.copy(alarmColor = color) } }
             if (ui.textScale != 1f || ui.sizeScale != 1f) {
                 TextButton(onClick = { c.updateUiSettings { it.copy(textScale = 1f, sizeScale = 1f) } }, modifier = Modifier.padding(horizontal = 8.dp)) {
                     Text("Reset sizes")
@@ -260,6 +270,34 @@ private fun SizeSetting(label: String, steps: List<Float>, current: Float, onCha
         )
         OutlinedIconButton(onClick = { onChange(steps[index + 1]) }, enabled = index < steps.lastIndex) {
             Text("+", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { contentDescription = "Larger $label" })
+        }
+    }
+}
+
+/** The full-screen alarm's colour: a row of swatches, each showing the alarm's own text colour on it. */
+@Composable
+private fun AlarmColorSetting(current: AlarmColor, onChange: (AlarmColor) -> Unit) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Alarm screen colour", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(current.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
+        }
+        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AlarmColor.entries.forEach { color ->
+                val chosen = color == current
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(color.background))
+                        .border(if (chosen) 3.dp else 1.dp, if (chosen) MaterialTheme.medColors.ink else MaterialTheme.medColors.foil, CircleShape)
+                        .selectable(selected = chosen, role = Role.RadioButton, onClick = { onChange(color) })
+                        .semantics { contentDescription = "${color.label} alarm" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (chosen) Icon(Icons.Default.Check, null, tint = Color(color.content), modifier = Modifier.size(20.dp))
+                }
+            }
         }
     }
 }

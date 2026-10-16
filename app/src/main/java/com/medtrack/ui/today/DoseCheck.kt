@@ -43,17 +43,17 @@ internal suspend fun untickDose(c: AppContainer, item: TodayItem) {
     item.logId?.let { c.engine.undo(it, null) }
 }
 
-/** What the tick box's label says; [separator] goes between "Taken" and its time. */
-private fun TodayItem.statusText(now: Instant, zone: ZoneId, separator: String = " "): String = when {
+/** What the tick box's label says; [separator] goes between "Taken" and the time it was taken. */
+private fun TodayItem.statusText(zone: ZoneId, separator: String = " "): String = when {
     status == DoseStatus.TAKEN -> "Taken" + (actedAt?.let { separator + TIME.format(it.atZone(zone)) } ?: "")
     status == DoseStatus.SKIPPED -> "Skipped"
     status == DoseStatus.MISSED -> "Missed"
-    isDueNow(now) -> "Due now"
-    else -> "Later"
+    // An unticked box reads as what ticking it means; a due dose is told apart by the box's amber colour.
+    else -> "Taken"
 }
 
 /**
- * A tick box for one dose: ticked = taken. [label] defaults to the dose's status ("Due now", "Taken 2:05 PM");
+ * A tick box for one dose: ticked = taken. [label] defaults to "Taken" (with the time once ticked), or "Missed"/"Skipped";
  * the medications list passes the dose time instead. [stacked] puts a small label under the box, for narrow rows.
  */
 @Composable
@@ -64,7 +64,7 @@ fun DoseCheck(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     stacked: Boolean = false,
-    label: String = item.statusText(now, zone, separator = if (stacked) "\n" else " "),
+    label: String = item.statusText(zone, separator = if (stacked) "\n" else " "),
 ) {
     val colors = MaterialTheme.medColors
     val taken = item.status == DoseStatus.TAKEN
