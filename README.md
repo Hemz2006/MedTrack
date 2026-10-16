@@ -10,17 +10,21 @@ A personal Android app for keeping track of your medicines and getting reminded 
 - **Forms and doses:**
   - Forms: tablet, capsule, syrup, inhaler, Rotacap, nebuliser (Respules), drops, injection, cream.
   - One-tap doses that suit the form, such as "2 puffs" or "1 respule in nebuliser".
-- **Photos and notes.** Add several photos of the strip or box. The main one appears in lists, notifications and alarms. Add notes on how you take the medicine.
+- **Photos and notes.** Add several photos of the strip or box, while editing or straight from a medicine's page (**Add photos**). The main one appears in lists and alarms. Add notes on how you take the medicine.
 - **Flexible schedules.** A medicine can have several schedules at once:
-  - times every day
+  - times every day, with a "times a day" shortcut that spreads doses from 8 AM to 10 PM
   - chosen weekdays
   - every N hours
   - after breakfast, lunch or dinner
   - a course with an end date
-- **Reminders that ring like an alarm.**
-  - Full-screen alarm with Taken, Snooze 10 min and Skip.
-  - Today screen with one-tap Take and Undo.
-  - Dose history for each medicine.
+- **Doses that change over time.** Split a schedule into steps, e.g. 6 times a day for two weeks, then 4 times a day. Each step has its own length, dose and timings; the next step starts the day after.
+- **Today, ticked off as you go.**
+  - A ring around the date fills as you take the day's doses.
+  - View **By time**, or **By medication** with each dose as a tile you tap to tick off (tap again to undo).
+  - Step back to yesterday or pick any past date from the calendar to see what was taken, skipped or missed.
+  - Times are shown in 12-hour format.
+- **Reminders that ring like an alarm.** A full-screen alarm with Taken, Snooze 10 min and Skip. On the lock screen, notifications say only that a medicine is due; names appear once the phone is unlocked.
+- **Appearance and accessibility.** In Settings, choose System, Light (green and white) or Dark, and make text, buttons and icons smaller or larger.
 - **After-meal reminders (optional).** Connect Health Connect and log a meal in a fitness app. The reminder comes a set time after the meal. If no meal is logged, it rings at a fallback time.
 
 ## Install on your phone
@@ -75,6 +79,7 @@ In both cases, add the composition yourself once and the app remembers it.
 | Reminders | AlarmManager exact alarms, notifications, full-screen alarm activity |
 | Meals | Health Connect, checked every 15 minutes by WorkManager |
 | Android | minSdk 28, targetSdk 35 |
+| Release build | R8 minified and resource-shrunk (about 8 MB), not debuggable |
 
 Run the tests (unit tests plus Robolectric):
 
@@ -100,9 +105,14 @@ Other docs:
 app/src/main/java/com/medtrack/
   data/       Room entities, DAOs, migrations, photo storage, medicine forms
   lookup/     Indian brand search, composition parsing, RxNorm/PubChem/MedlinePlus lookups
-  schedule/   Schedule rules and dose-time maths
+  schedule/   Schedule rules, dose steps and dose-time maths
   reminders/  Reminder engine, alarms, notifications, alarm screen
   health/     Health Connect meal checks
   ui/         Compose screens: Today, Medications, Detail, Edit, Settings
 tools/        build_brand_index.py
 ```
+
+## Credits
+
+- Font: [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, under the SIL Open Font License (`app/src/main/assets/licenses/Newsreader-OFL.txt`).
+- The navigation island, calendar, view menu and alerts are Compose versions of [EasyUI](https://github.com/Surajmaurya1/easyui) components; the alert icons are from [Lucide](https://lucide.dev) (ISC licence).
