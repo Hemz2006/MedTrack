@@ -38,12 +38,13 @@ val LightMedColors = MedTrackColors(
     taken = Color(0xFF157A4F),
 )
 
+/** Dark mode: the app icon's green-black tile, with mint as the accent (the icon's capsule). */
 val DarkMedColors = MedTrackColors(
-    paper = Color(0xFF0E1824),
-    paperRaised = Color(0xFF16222F),
-    ink = Color(0xFFE3EAF2),
-    inkMuted = Color(0xFF9FB0C2),
-    foil = Color(0xFF2A3A4C),
+    paper = Color(0xFF0E171A),
+    paperRaised = Color(0xFF162321),
+    ink = Color(0xFFE4EEEA),
+    inkMuted = Color(0xFF9DB3AA),
+    foil = Color(0xFF2B3C37),
     amber = Color(0xFFF4A23C),
     onAmber = Color(0xFF0E1824),
     missed = Color(0xFFF07167),
@@ -96,14 +97,15 @@ internal fun lightScheme(m: MedTrackColors): ColorScheme = lightColorScheme(
 )
 
 internal fun darkScheme(m: MedTrackColors): ColorScheme = darkColorScheme(
-    primary = m.ink,
+    // Mint for actions and selection, matching the icon; dark text on it (about 10:1).
+    primary = Color(0xFF6ED3A3),
     onPrimary = m.paper,
-    primaryContainer = Color(0xFF243444),
+    primaryContainer = Color(0xFF1E3B31),
     onPrimaryContainer = m.ink,
-    inversePrimary = Color(0xFF16324F),
+    inversePrimary = Color(0xFF157A4F),
     secondary = m.inkMuted,
     onSecondary = m.paper,
-    secondaryContainer = Color(0xFF2A3A4C),
+    secondaryContainer = Color(0xFF25352F),
     onSecondaryContainer = m.ink,
     tertiary = m.amber,
     onTertiary = m.onAmber,
@@ -113,7 +115,7 @@ internal fun darkScheme(m: MedTrackColors): ColorScheme = darkColorScheme(
     onBackground = m.ink,
     surface = m.paper,
     onSurface = m.ink,
-    surfaceVariant = Color(0xFF243444),
+    surfaceVariant = Color(0xFF22322D),
     onSurfaceVariant = m.inkMuted,
     surfaceTint = Color.Transparent,
     inverseSurface = m.ink,
@@ -125,11 +127,11 @@ internal fun darkScheme(m: MedTrackColors): ColorScheme = darkColorScheme(
     outline = m.foil,
     outlineVariant = m.foil,
     scrim = Color(0xFF000000),
-    surfaceBright = Color(0xFF243444),
+    surfaceBright = Color(0xFF22322D),
     surfaceDim = m.paper,
-    surfaceContainerLowest = Color(0xFF0B141E),
+    surfaceContainerLowest = Color(0xFF0A1214),
     surfaceContainerLow = m.paperRaised,
     surfaceContainer = m.paperRaised,
-    surfaceContainerHigh = Color(0xFF1D2B3A),
-    surfaceContainerHighest = Color(0xFF243444),
+    surfaceContainerHigh = Color(0xFF1C2B28),
+    surfaceContainerHighest = Color(0xFF22322D),
 )
