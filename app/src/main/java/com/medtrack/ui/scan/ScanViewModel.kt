@@ -1,5 +1,8 @@
 package com.medtrack.ui.scan
 
+import com.medtrack.data.title
+import com.medtrack.lookup.formatComposition
+import com.medtrack.lookup.Brand
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -27,7 +30,8 @@ sealed interface ScanStep {
     data object ChoosePhoto : ScanStep
     data class Cropping(val path: String) : ScanStep
     data class Reading(val path: String) : ScanStep
-    data class Found(val path: String, val matches: List<PrescriptionMatch>, val textRead: Boolean) : ScanStep
+    /** [text] is everything that was read, shown so the user can see why something did or didn't match. */
+    data class Found(val path: String, val matches: List<PrescriptionMatch>, val text: String) : ScanStep
     data class Failed(val message: String) : ScanStep
 }
 
@@ -69,7 +73,9 @@ class ScanViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             _step.value = try {
                 val text = readText(path)
-                ScanStep.Found(path, c.brands.matchPrescription(text), textRead = text.isNotBlank())
+                val saved = c.db.medicationDao().all()
+                    .map { Brand(it.title, it.ingredients.formatComposition().ifBlank { it.genericName }, null, saved = true) }
+                ScanStep.Found(path, c.brands.matchPrescription(text, saved), text.trim())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

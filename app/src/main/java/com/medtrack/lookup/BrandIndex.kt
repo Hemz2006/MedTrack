@@ -41,24 +41,28 @@ class BrandIndex(private val context: Context) {
 
     /**
      * The likely medicines in a prescription's [text]: for each word that could be a name, the brands it is closest
-     * to, allowing a few misread letters. Words that match nothing are left out. A misread first three letters
-     * can't be found, since the search starts from them.
+     * to, allowing a few misread letters. [saved] are the user's own medications, matched too (and first): they
+     * cover brands missing from the list. Words that match nothing are left out.
      */
-    suspend fun matchPrescription(text: String): List<PrescriptionMatch> = withContext(Dispatchers.IO) {
-        val database = open() ?: return@withContext emptyList()
+    suspend fun matchPrescription(text: String, saved: List<Brand> = emptyList()): List<PrescriptionMatch> = withContext(Dispatchers.IO) {
+        val database = open()
+        val own = saved.map { Candidate(it, discontinued = false) }
         namesInPrescription(text).mapNotNull { read ->
-            val prefix = brandKey(read.word).take(3)
-            val candidates = database.rawQuery(
-                "SELECT b.name, c.text, m.name, b.discontinued FROM brands b " +
-                    "JOIN compositions c ON c.id = b.composition LEFT JOIN makers m ON m.id = b.maker " +
-                    "WHERE b.key >= ? AND b.key < ? LIMIT 5000",
-                arrayOf(prefix, "$prefix{"),
-            ).use { c ->
-                buildList {
-                    while (c.moveToNext()) add(Candidate(Brand(c.getString(0), c.getString(1), c.getString(2)), c.getInt(3) == 1))
+            val listed = database?.let { db ->
+                searchPrefixes(read.word).flatMap { prefix ->
+                    db.rawQuery(
+                        "SELECT b.name, c.text, m.name, b.discontinued FROM brands b " +
+                            "JOIN compositions c ON c.id = b.composition LEFT JOIN makers m ON m.id = b.maker " +
+                            "WHERE b.key >= ? AND b.key < ? LIMIT 3000",
+                        arrayOf(prefix, "$prefix{"),
+                    ).use { c ->
+                        buildList {
+                            while (c.moveToNext()) add(Candidate(Brand(c.getString(0), c.getString(1), c.getString(2)), c.getInt(3) == 1))
+                        }
+                    }
                 }
-            }
-            closestBrands(read, candidates).takeIf { it.isNotEmpty() }?.let { PrescriptionMatch(read.word, it) }
+            }.orEmpty()
+            closestBrands(read, own + listed).takeIf { it.isNotEmpty() }?.let { PrescriptionMatch(read.word, it) }
         }.distinctBy { match -> match.brands.first().name.lowercase() }
     }
 

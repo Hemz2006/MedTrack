@@ -106,13 +106,21 @@ private fun Found(padding: PaddingValues, s: ScanStep.Found, onAdd: (Brand) -> U
         item { PhotoHeader(s.path, "Scanned prescription") }
         item {
             val message = when {
-                !s.textRead -> "No writing could be read in this photo. Try again closer, flat and well lit."
+                s.text.isEmpty() -> "No writing could be read in this photo. Try again closer, flat and well lit."
                 s.matches.isEmpty() -> "No medicines could be matched. You can still add them yourself by name."
                 else -> "Check each one against the prescription before adding it. These are suggestions, not a reading you can rely on."
             }
             MedAlert(if (s.matches.isEmpty()) AlertTone.WARNING else AlertTone.INFO, message)
         }
         items(s.matches, key = { it.read + it.brands.first().name }) { match -> MatchCard(match, onAdd) }
+        if (s.text.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Text read from the photo", style = MaterialTheme.typography.labelLarge, color = colors.inkMuted, modifier = Modifier.semantics { heading() })
+                    Text(s.text, style = MaterialTheme.typography.bodyMedium, color = colors.ink)
+                }
+            }
+        }
         item {
             HorizontalDivider(color = colors.foil)
             Spacer(Modifier.size(8.dp))
@@ -131,6 +139,7 @@ private fun MatchCard(match: PrescriptionMatch, onAdd: (Brand) -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(brand.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = colors.ink)
+                    if (brand.saved) Text("One of your medications", style = MaterialTheme.typography.labelMedium, color = colors.taken)
                     Text(brand.composition, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
                 }
                 Spacer(Modifier.width(8.dp))

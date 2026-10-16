@@ -35,12 +35,31 @@ class PrescriptionMatchTest {
     }
 
     @Test fun shortWordsMustMatchExactly() {
-        assertEquals(emptyList<Brand>(), closestBrands(ReadName("Dalo", null), listOf(brand("Dolo 650 Tablet"))))
+        assertEquals(emptyList<Brand>(), closestBrands(ReadName("Dulo", null), listOf(brand("Dolo 650 Tablet"))))
     }
 
     @Test fun editDistanceCountsChanges() {
         assertEquals(0, editDistance("pantonix", "pantonix"))
         assertEquals(1, editDistance("pantomix", "pantonix"))
         assertEquals(1, editDistance("pantonx", "pantonix"))
+    }
+
+    @Test fun searchPrefixesTryLookalikeLetters() {
+        val prefixes = searchPrefixes("Polo")
+        assertEquals("pol", prefixes.first())
+        assertEquals(true, "dol" in prefixes)
+        assertEquals(true, "mec" in searchPrefixes("Nec"))
+    }
+
+    @Test fun savedMedicationsMatchAndComeFirst() {
+        val mine = Candidate(Brand("Mecmaxol", "Methylcobalamin", null, saved = true), false)
+        assertEquals(listOf("Mecmaxol"), closestBrands(ReadName("Mecmoxol", null), listOf(brand("Mecmo Tablet"), mine)).map { it.name })
+    }
+
+    @Test fun lookalikeLettersStillMatch() {
+        // As read by the phone from a handwritten prescription: "Qolo 6 So" and "hecmool".
+        assertEquals(listOf("Dolo 650 Tablet"), closestBrands(ReadName("Qolo", "6"), listOf(brand("Dolo 650 Tablet"), brand("Solo Gel"))).map { it.name })
+        val mine = Candidate(Brand("Mecmaxol", "Methylcobalamin", null, saved = true), false)
+        assertEquals(listOf("Mecmaxol"), closestBrands(ReadName("hecmool", null), listOf(mine)).map { it.name })
     }
 }

@@ -38,6 +38,30 @@ fun namesInPrescription(text: String): List<ReadName> {
     return found.distinctBy { it.word.lowercase() to it.strength }
 }
 
+/** Letters that handwriting recognition often mistakes for one another. */
+private val LOOKALIKES = listOf("adopq", "hmn", "ijl", "ce", "uv")
+
+/** [key] with each lookalike letter replaced by its group's first, so "qolo" and "dolo" compare equal. */
+internal fun lookalikeKey(key: String): String =
+    key.map { ch -> LOOKALIKES.firstOrNull { ch in it }?.first() ?: ch }.joinToString("")
+
+/**
+ * The first three letters of [word]'s key, plus versions with one letter swapped for a lookalike (for "Polo",
+ * also "dol" and "ool"), since the brand search starts from those letters and handwriting often blurs them.
+ */
+internal fun searchPrefixes(word: String): List<String> {
+    val prefix = brandKey(word).take(3)
+    if (prefix.length < 3) return listOf(prefix)
+    return buildList {
+        add(prefix)
+        prefix.forEachIndexed { i, ch ->
+            LOOKALIKES.filter { ch in it }.flatMap { it.toList() }.distinct().filter { it != ch }.forEach { other ->
+                add(prefix.substring(0, i) + other + prefix.substring(i + 1))
+            }
+        }
+    }.distinct()
+}
+
 /** The search key of a brand's first word: "PAN 40 Tablet" → "pan". */
 internal fun headKey(brandName: String): String = brandKey(brandName.trim().substringBefore(' '))
 
@@ -49,18 +73,25 @@ internal fun allowedMisreads(length: Int): Int = when {
 }
 
 /**
- * The brands whose first word is closest to [read], allowing a few misread letters, best first: the fewest
- * misreads, then a matching strength, then brands still on sale, then shorter names.
+ * The brands whose first word is closest to [read], allowing a few misread letters (letters that look alike in
+ * handwriting, such as "q" for "d" or "h" for "m", don't count), best first: the fewest misreads, then the closest
+ * spelling, then the user's own medications, a matching strength, brands still on sale, and shorter names.
  */
 internal fun closestBrands(read: ReadName, candidates: List<Candidate>, limit: Int = 3): List<Brand> {
     val key = brandKey(read.word)
+    val loose = lookalikeKey(key)
     val allowed = allowedMisreads(key.length)
     return candidates
-        .map { it to editDistance(key, headKey(it.brand.name)) }
-        .filter { (_, misreads) -> misreads <= allowed }
+        .map { candidate ->
+            val head = headKey(candidate.brand.name)
+            Triple(candidate, editDistance(loose, lookalikeKey(head)), editDistance(key, head))
+        }
+        .filter { it.second <= allowed }
         .sortedWith(
-            compareBy<Pair<Candidate, Int>>(
+            compareBy<Triple<Candidate, Int, Int>>(
                 { it.second },
+                { it.third },
+                { !it.first.brand.saved },
                 { read.strength == null || !it.first.brand.name.contains(read.strength) },
                 { it.first.discontinued },
                 { it.first.brand.name.length },
