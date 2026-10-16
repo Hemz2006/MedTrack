@@ -62,11 +62,12 @@ import com.medtrack.ui.common.TextTag
 import com.medtrack.ui.theme.medColors
 
 @Composable
-fun MedicationsScreen(c: AppContainer, onAdd: () -> Unit, onOpen: (Long) -> Unit) {
+fun MedicationsScreen(c: AppContainer, onAdd: () -> Unit, onScan: () -> Unit, onOpen: (Long) -> Unit) {
     val meds by remember { c.db.medicationDao().observeAll() }.collectAsStateWithLifecycle(null)
     ScreenScaffold(
         title = "Medications",
         isTab = true,
+        actions = { TextButton(onClick = onScan, modifier = Modifier.heightIn(min = 48.dp)) { Text("Scan prescription") } },
         fab = {
             if (!meds.isNullOrEmpty()) {
                 ExtendedFloatingActionButton(

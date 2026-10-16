@@ -55,8 +55,8 @@ import com.medtrack.ui.theme.medColors
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
-    val vm = containerViewModel { EditViewModel(c, id) }
+fun EditMedicationScreen(c: AppContainer, id: Long, prefill: Brand?, onDone: () -> Unit) {
+    val vm = containerViewModel { EditViewModel(c, id, prefill) }
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.saved) { if (state.saved) onDone() }
 

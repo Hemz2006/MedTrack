@@ -1,5 +1,8 @@
 package com.medtrack.ui
 
+import com.medtrack.ui.scan.ScanScreen
+import com.medtrack.lookup.Brand
+import android.net.Uri
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
@@ -26,9 +29,13 @@ object Routes {
     const val TODAY = "today"
     const val MEDS = "meds"
     const val SETTINGS = "settings"
-    const val EDIT = "edit/{id}"
+    const val EDIT = "edit/{id}?brand={brand}&composition={composition}"
     const val DETAIL = "detail/{id}"
+    const val SCAN = "scan"
     fun edit(id: Long) = "edit/$id"
+
+    /** Add medication, filled in with [brand] (as when it was picked from the brand list). */
+    fun addBrand(brand: Brand) = "edit/0?brand=${Uri.encode(brand.name)}&composition=${Uri.encode(brand.composition)}"
     fun detail(id: Long) = "detail/$id"
 }
 
@@ -57,15 +64,32 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
                 )
             }
             composable(Routes.MEDS) {
-                MedicationsScreen(c, onAdd = { nav.navigate(Routes.edit(0)) }, onOpen = { nav.navigate(Routes.detail(it)) })
+                MedicationsScreen(
+                    c,
+                    onAdd = { nav.navigate(Routes.edit(0)) },
+                    onScan = { nav.navigate(Routes.SCAN) },
+                    onOpen = { nav.navigate(Routes.detail(it)) },
+                )
             }
             composable(Routes.SETTINGS) {
                 SettingsScreen(c, isSetup = !c.prefs.setupDone, onSetupDone = {
                     nav.navigate(Routes.TODAY) { popUpTo(0) { inclusive = true } }
                 })
             }
-            composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
-                EditMedicationScreen(c, entry.arguments!!.getLong("id"), onDone = { nav.popBackStack() })
+            composable(
+                Routes.EDIT,
+                arguments = listOf(
+                    navArgument("id") { type = NavType.LongType },
+                    navArgument("brand") { type = NavType.StringType; nullable = true },
+                    navArgument("composition") { type = NavType.StringType; nullable = true },
+                ),
+            ) { entry ->
+                val args = entry.arguments!!
+                val prefill = args.getString("brand")?.let { Brand(it, args.getString("composition").orEmpty(), null) }
+                EditMedicationScreen(c, args.getLong("id"), prefill, onDone = { nav.popBackStack() })
+            }
+            composable(Routes.SCAN) {
+                ScanScreen(c, onBack = { nav.popBackStack() }, onAdd = { nav.navigate(Routes.addBrand(it)) })
             }
             composable(Routes.DETAIL, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
                 val id = entry.arguments!!.getLong("id")

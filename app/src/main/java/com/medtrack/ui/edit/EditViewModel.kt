@@ -41,7 +41,8 @@ data class EditState(
     val saved: Boolean = false,
 )
 
-class EditViewModel(private val c: AppContainer, private val id: Long) : ViewModel() {
+/** [prefill]: a brand to start a new medication from (chosen from a scanned prescription). */
+class EditViewModel(private val c: AppContainer, private val id: Long, prefill: Brand? = null) : ViewModel() {
     private val _state = MutableStateFlow(EditState(med = newMedication(LocalDate.now(), Instant.now())))
     val state = _state.asStateFlow()
 
@@ -54,6 +55,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
     init {
         if (id == 0L) {
             _state.update { it.copy(loaded = true) }
+            prefill?.let(::pickBrand)
         } else {
             viewModelScope.launch {
                 val existing = c.db.medicationDao().get(id)

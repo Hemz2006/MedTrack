@@ -16,6 +16,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        // 64-bit ARM only (every current Android phone): the text-recognition library's native code is ~11 MB per
+        // processor type, so shipping all four would quadruple the app.
+        ndk { abiFilters += "arm64-v8a" }
     }
     buildTypes {
         release {
@@ -56,6 +59,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.health.connect:connect-client:1.1.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    // On-device text recognition for reading prescriptions (model bundled: works offline, no Google Play services).
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
