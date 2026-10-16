@@ -22,7 +22,7 @@ class ScheduleTest {
     )
 
     @Test fun jsonRoundTripsEveryRuleType() {
-        samples.forEach { assertEquals(it, ScheduleJson.decode(ScheduleJson.encode(it))) }
+        samples.forEach { assertEquals(it, ScheduleJson.decodeSteps(ScheduleJson.encodeSteps(listOf(it))).single()) }
     }
 
     @Test fun validSchedulesHaveNoError() {
@@ -53,7 +53,7 @@ class ScheduleTest {
             start.plusDays(7),
         )
         assertEquals("Right after breakfast (by 10:00 AM); 30 min after dinner (by 10:00 PM), until 20 Oct", s.describe())
-        assertEquals(s, ScheduleJson.decode(ScheduleJson.encode(s)))
+        assertEquals(s, ScheduleJson.decodeSteps(ScheduleJson.encodeSteps(listOf(s))).single())
     }
 
     @Test fun describesEachRuleType() {

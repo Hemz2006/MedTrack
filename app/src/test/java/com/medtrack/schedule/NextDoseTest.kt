@@ -12,6 +12,13 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 
+/** The whole schedule's next dose and doses: the union of its rules (the app works rule by rule). */
+private fun nextDose(s: Schedule, after: Instant, zone: ZoneId, skip: Set<LocalDate> = emptySet()): Instant? =
+    s.rules.mapNotNull { nextDose(s, it, after, zone, skip) }.minOrNull()
+
+private fun dosesBetween(s: Schedule, from: Instant, to: Instant, zone: ZoneId): List<Instant> =
+    s.rules.flatMap { dosesBetween(s, it, from, to, zone) }.distinct().sorted()
+
 class NextDoseTest {
     private val ist = ZoneId.of("Asia/Kolkata")
     private val london = ZoneId.of("Europe/London")

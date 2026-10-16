@@ -18,7 +18,14 @@ android {
         versionName = "1.0"
     }
     buildTypes {
-        release { isMinifyEnabled = false }
+        release {
+            // Optimised and not debuggable: much faster than the debug build, and its data can't be read over USB.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // A personal app installed over USB: signed with the local debug key, so it updates the debug install in place.
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

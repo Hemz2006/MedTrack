@@ -17,6 +17,9 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 class TodayModelTest {
+    private fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Instant, zone: ZoneId) =
+        buildDay(meds, logs, now.atZone(zone).toLocalDate(), now, zone)
+
     private val zone = ZoneId.of("Asia/Kolkata")
     private fun at(s: String): Instant = LocalDateTime.parse(s).atZone(zone).toInstant()
     private val start = LocalDate.parse("2026-10-01")
@@ -77,17 +80,6 @@ class TodayModelTest {
         assertEquals(listOf("8:00 AM", "After breakfast, by 10:00 AM", "9:00 PM"), groups.map { it.label })
         assertEquals(2, groups.first().items.size)
         assertEquals(listOf(true, false, false), groups.map { it.isDueNow(at("2026-10-13T08:05")) })
-    }
-
-    @Test fun capsuleStatesFollowStatusAndTime() {
-        val now = at("2026-10-13T12:00")
-        fun item(status: DoseStatus?, due: String) = TodayItem("k", 1, daily, at(due), status, null, null)
-        assertEquals(CapsuleState.TAKEN, item(DoseStatus.TAKEN, "2026-10-13T08:00").capsuleState(now))
-        assertEquals(CapsuleState.DUE, item(DoseStatus.PENDING, "2026-10-13T11:00").capsuleState(now))
-        assertEquals(CapsuleState.UPCOMING, item(DoseStatus.PENDING, "2026-10-13T13:00").capsuleState(now))
-        assertEquals(CapsuleState.MISSED, item(DoseStatus.MISSED, "2026-10-13T08:00").capsuleState(now))
-        assertEquals(CapsuleState.SKIPPED, item(DoseStatus.SKIPPED, "2026-10-13T08:00").capsuleState(now))
-        assertEquals(CapsuleState.UPCOMING, item(null, "2026-10-13T21:00").capsuleState(now))
     }
 
     @Test fun recordedItemsCarryActedAt() {

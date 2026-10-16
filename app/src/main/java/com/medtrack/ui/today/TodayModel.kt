@@ -27,10 +27,6 @@ data class TodayItem(
     val slot: String? = null,
 )
 
-/** Today's recorded doses plus the doses still to come, in time order. */
-fun buildToday(meds: List<MedicationEntity>, logs: List<DoseLogEntity>, now: Instant, zone: ZoneId): List<TodayItem> =
-    buildDay(meds, logs, now.atZone(zone).toLocalDate(), now, zone)
-
 /**
  * The doses of [today]: the ones recorded (taken, skipped, missed, waiting) plus, for a day not yet over,
  * the ones still to come. A past day shows only what was recorded; that is its history.
@@ -77,21 +73,13 @@ data class DayProgress(val taken: Int, val total: Int) {
 fun List<TodayItem>.progress(): DayProgress =
     DayProgress(taken = count { it.status == DoseStatus.TAKEN }, total = count { it.status != DoseStatus.SKIPPED })
 
-/** How a dose looks as a blister capsule (Today strip and detail history). */
+/** How a recorded dose looks as a capsule in a medication's history. */
 enum class CapsuleState(val spoken: String) {
-    TAKEN("taken"), DUE("due now"), MISSED("missed"), SKIPPED("skipped"), UPCOMING("later"),
+    TAKEN("taken"), DUE("due now"), MISSED("missed"), SKIPPED("skipped"),
 }
 
 /** A rung dose that is still waiting for the user. */
 fun TodayItem.isDueNow(now: Instant): Boolean = status == DoseStatus.PENDING && dueAt <= now
-
-fun TodayItem.capsuleState(now: Instant): CapsuleState = when (status) {
-    DoseStatus.TAKEN -> CapsuleState.TAKEN
-    DoseStatus.SKIPPED -> CapsuleState.SKIPPED
-    DoseStatus.MISSED -> CapsuleState.MISSED
-    DoseStatus.PENDING -> if (isDueNow(now)) CapsuleState.DUE else CapsuleState.UPCOMING
-    null -> CapsuleState.UPCOMING
-}
 
 fun DoseStatus.capsuleState(): CapsuleState = when (this) {
     DoseStatus.TAKEN -> CapsuleState.TAKEN

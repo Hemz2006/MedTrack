@@ -1,5 +1,7 @@
 package com.medtrack.ui.common
 
+import android.util.LruCache
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.pager.HorizontalPager
@@ -37,12 +39,12 @@ import kotlinx.coroutines.withContext
 /** The medication's photo, or a foil tile with a picture of its form (or its initial when the form is unknown). */
 @Composable
 fun PhotoThumb(path: String?, name: String, size: Dp, modifier: Modifier = Modifier, form: MedForm? = null) =
-    PhotoBox(path, name, modifier.size(size), initialSize(size), form, size * 0.55f)
+    PhotoBox(path, name, modifier.size(size), initialSize(size), form, size * 0.55f, decodeSide = size)
 
 /** The photo as a full-width header image (16:10). */
 @Composable
 fun PhotoHeader(path: String?, name: String, modifier: Modifier = Modifier) =
-    PhotoBox(path, name, modifier.fillMaxWidth().aspectRatio(16f / 10f), 64.sp, null, 0.dp)
+    PhotoBox(path, name, modifier.fillMaxWidth().aspectRatio(16f / 10f), 64.sp, null, 0.dp, decodeSide = 420.dp)
 
 /** Several photos as a swipeable header, with "2 of 3" beneath when there's more than one. */
 @Composable
@@ -60,9 +62,14 @@ fun PhotoGallery(paths: List<String>, name: String, modifier: Modifier = Modifie
 }
 
 @Composable
-private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: TextUnit, form: MedForm?, iconSize: Dp) {
-    val bitmap by produceState<ImageBitmap?>(null, path) {
-        value = path?.let { withContext(Dispatchers.IO) { PhotoStore.decodeSampled(it, 512)?.asImageBitmap() } }
+private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: TextUnit, form: MedForm?, iconSize: Dp, decodeSide: Dp) {
+    // Decoded at about the size shown, and kept in memory, so scrolling a list doesn't re-read every photo.
+    val side = with(LocalDensity.current) { decodeSide.roundToPx() }
+    val key = path?.let { "$it#$side" }
+    val bitmap by produceState(key?.let(PhotoCache::get), key) {
+        if (path != null && value == null) {
+            value = withContext(Dispatchers.IO) { PhotoStore.decodeSampled(path, side)?.asImageBitmap() }?.also { PhotoCache.put(key!!, it) }
+        }
     }
     val current = bitmap
     if (current != null) {
@@ -88,3 +95,8 @@ private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: T
 
 /** Scales the initial with the tile, between body and roughly display size. */
 private fun initialSize(size: Dp): TextUnit = (size.value * 0.4f).coerceIn(15f, 48f).sp
+
+/** Recently shown photos, by path and decoded size, up to an eighth of the app's memory. */
+private object PhotoCache : LruCache<String, ImageBitmap>((Runtime.getRuntime().maxMemory() / 8 / 1024).toInt()) {
+    override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4 / 1024
+}

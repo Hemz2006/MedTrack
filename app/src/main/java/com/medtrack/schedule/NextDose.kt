@@ -27,10 +27,6 @@ fun nextDose(
     is ScheduleRule.EveryNHours -> nextInterval(schedule, rule, after, zone, skipDates)
 }
 
-/** The first dose of any of the schedule's rules strictly after [after]. */
-fun nextDose(schedule: Schedule, after: Instant, zone: ZoneId, skipDates: Set<LocalDate> = emptySet()): Instant? =
-    schedule.rules.mapNotNull { nextDose(schedule, it, after, zone, skipDates) }.minOrNull()
-
 /** All doses of [rule] in (from, to]. */
 fun dosesBetween(
     schedule: Schedule,
@@ -48,10 +44,6 @@ fun dosesBetween(
         cursor = next
     }
 }
-
-/** All doses of every rule in (from, to], in time order; rules that land on the same instant give one dose. */
-fun dosesBetween(schedule: Schedule, from: Instant, to: Instant, zone: ZoneId): List<Instant> =
-    schedule.rules.flatMap { dosesBetween(schedule, it, from, to, zone) }.distinct().sorted()
 
 private fun nextOnDays(
     schedule: Schedule,

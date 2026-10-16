@@ -33,8 +33,10 @@ You need Android 9 or newer.
 4. Turn on **USB debugging** on the phone, connect it, then run:
 
    ```sh
-   ./gradlew :app:installDebug
+   ./gradlew :app:installRelease
    ```
+
+   This is the optimised build: much faster than the debug build, and its data can't be read over USB. It's signed with your local debug key, so it updates a debug install in place.
 
 5. Open MedTrack and go to **Settings**. Allow notifications, alarms, full-screen alarms and unrestricted battery.
    - On Realme, Oppo, Xiaomi, Vivo and Samsung phones, also allow MedTrack to **auto-start** and **run in the background** in the phone's battery settings.

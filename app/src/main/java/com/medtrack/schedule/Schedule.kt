@@ -61,7 +61,7 @@ val Schedule.hasMealRule: Boolean get() = rules.any { it is ScheduleRule.AfterMe
 object ScheduleJson {
     private val json = Json { ignoreUnknownKeys = true }
     private val steps = ListSerializer(Schedule.serializer())
-    fun encode(schedule: Schedule): String = json.encodeToString(Schedule.serializer(), schedule)
+    /** One v1/v2 schedule, as stored before steps; only the v1→v2 migration reads these. */
     fun decode(text: String): Schedule = json.decodeFromString(Schedule.serializer(), text)
     fun encodeSteps(list: List<Schedule>): String = json.encodeToString(steps, list)
     fun decodeSteps(text: String): List<Schedule> = json.decodeFromString(steps, text)

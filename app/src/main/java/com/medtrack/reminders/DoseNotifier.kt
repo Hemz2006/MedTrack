@@ -29,9 +29,12 @@ open class DoseNotifier(private val context: Context) {
                     .build(),
             )
             enableVibration(true)
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            // Medicine names are health information: on the lock screen show only that something is due.
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         }
         manager.createNotificationChannel(channel)
+        // The first channel showed names on the lock screen; a channel's lock-screen setting can't be changed, so replace it.
+        manager.deleteNotificationChannel(OLD_CHANNEL_ID)
     }
 
     open fun ring(items: List<RingItem>) {
@@ -45,7 +48,8 @@ open class DoseNotifier(private val context: Context) {
                 .setLargeIcon(item.photoPath?.let { runCatching { PhotoStore.decodeSampled(it, 256) }.getOrNull() })
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(lockScreenVersion())
                 .setGroup(GROUP)
                 .setSilent(index > 0) // one sound for the batch
                 .setContentIntent(alarmScreen())
@@ -63,12 +67,22 @@ open class DoseNotifier(private val context: Context) {
                 .setContentTitle("${items.size} medications due")
                 .setGroup(GROUP)
                 .setGroupSummary(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(lockScreenVersion())
                 .setSilent(true)
                 .setContentIntent(alarmScreen())
                 .build()
             manager.notify(SUMMARY_TAG, 0, summary)
         }
     }
+
+    /** What the locked screen shows instead: no medicine names, notes or photos. */
+    private fun lockScreenVersion() = NotificationCompat.Builder(context, CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_pill)
+        .setContentTitle("Time to take your medicine")
+        .setContentText("Unlock to see which")
+        .setCategory(NotificationCompat.CATEGORY_ALARM)
+        .build()
 
     fun cancel(logId: Long) = manager.cancel(TAG, logId.toInt())
 
@@ -92,7 +106,8 @@ open class DoseNotifier(private val context: Context) {
     )
 
     companion object {
-        const val CHANNEL_ID = "dose_alarms_v1"
+        const val CHANNEL_ID = "dose_alarms_v2"
+        private const val OLD_CHANNEL_ID = "dose_alarms_v1"
         const val TAG = "dose"
         private const val SUMMARY_TAG = "dose_summary"
         private const val GROUP = "doses"
