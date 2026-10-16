@@ -11,12 +11,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.SideEffect
 import android.app.Activity
+import android.app.UiModeManager
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.dp
+
+/**
+ * Tells Android which mode the app uses (Android 12+), so the system's launch screen and the app's light/dark
+ * resources follow the app's setting rather than only the phone's. Android remembers it between launches.
+ */
+fun ThemeMode.applyToSystem(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    val mode = when (this) {
+        ThemeMode.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+        ThemeMode.LIGHT -> UiModeManager.MODE_NIGHT_NO
+        ThemeMode.DARK -> UiModeManager.MODE_NIGHT_YES
+    }
+    context.getSystemService(UiModeManager::class.java)?.setApplicationNightMode(mode)
+}
 
 /** Small corners for label blocks; fully rounded capsules are reserved for doses. */
 val LabelShape = RoundedCornerShape(6.dp)

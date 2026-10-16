@@ -96,6 +96,17 @@ private fun PhotoBox(path: String?, name: String, modifier: Modifier, initial: T
 /** Scales the initial with the tile, between body and roughly display size. */
 private fun initialSize(size: Dp): TextUnit = (size.value * 0.4f).coerceIn(15f, 48f).sp
 
+/**
+ * Decodes [paths] at each of [sides] (pixels) into the cache ahead of time, so the screens that show them open
+ * with their photos already in place. Photos that can't be read are skipped; they show their placeholder.
+ */
+suspend fun preloadPhotos(paths: Collection<String>, sides: Collection<Int>) = withContext(Dispatchers.IO) {
+    for (path in paths) for (side in sides) {
+        val key = "$path#$side"
+        if (PhotoCache.get(key) == null) PhotoStore.decodeSampled(path, side)?.asImageBitmap()?.let { PhotoCache.put(key, it) }
+    }
+}
+
 /** Recently shown photos, by path and decoded size, up to an eighth of the app's memory. */
 private object PhotoCache : LruCache<String, ImageBitmap>((Runtime.getRuntime().maxMemory() / 8 / 1024).toInt()) {
     override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4 / 1024

@@ -22,6 +22,7 @@ import com.medtrack.reminders.AlarmScheduler
 import com.medtrack.reminders.DoseNotifier
 import com.medtrack.reminders.ReminderEngine
 import com.medtrack.schedule.hasMealRule
+import com.medtrack.ui.theme.applyToSystem
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 
 /** App-wide singletons. [appScope] is for work that must outlive a screen (dose actions, saves). */
 class AppContainer(context: Context) {
+    private val appContext = context.applicationContext
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> Log.e("MedTrack", "Unhandled error in appScope", e) })
     val db: MedTrackDatabase = Room.databaseBuilder(context, MedTrackDatabase::class.java, "medtrack.db")
         .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
@@ -39,9 +41,11 @@ class AppContainer(context: Context) {
     val uiSettings = MutableStateFlow(prefs.uiSettings)
 
     fun updateUiSettings(transform: (UiSettings) -> UiSettings) {
-        val next = transform(uiSettings.value)
+        val previous = uiSettings.value
+        val next = transform(previous)
         prefs.uiSettings = next
         uiSettings.value = next
+        if (next.theme != previous.theme) next.theme.applyToSystem(appContext)
     }
     val photos = PhotoStore(context)
     val lookup = MedicationLookup(urlConnectionFetch)
