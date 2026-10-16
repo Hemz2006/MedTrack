@@ -78,13 +78,15 @@ class NextDoseTest {
         assertEquals(at("2026-10-13T06:00"), nextDose(s, at("2026-10-12T20:00"), ist))
         assertEquals(at("2026-10-13T12:00"), nextDose(s, at("2026-10-13T06:00"), ist))
         assertEquals(at("2026-10-13T12:00"), nextDose(s, at("2026-10-13T07:00"), ist))
-        assertEquals(at("2026-10-14T00:00"), nextDose(s, at("2026-10-13T23:00"), ist))
+        // 6 PM is the day's last dose: midnight would be the next day, which starts again at 6 AM.
+        assertEquals(at("2026-10-14T06:00"), nextDose(s, at("2026-10-13T18:00"), ist))
     }
 
     @Test fun everyNHoursIsElapsedTimeAcrossDst() {
-        val s = Schedule(ScheduleRule.EveryNHours(12, LocalDateTime.parse("2026-10-24T20:00")), LocalDate.parse("2026-10-24"))
-        // Clock times hold across the change: 8 PM, then 8 AM on the 25th (now GMT, so 08:00Z).
+        val s = Schedule(ScheduleRule.EveryNHours(12, LocalDateTime.parse("2026-10-24T08:00")), LocalDate.parse("2026-10-24"))
+        // Clock times hold across the change: 8 AM and 8 PM on the 25th (now GMT, so 08:00Z and 20:00Z).
         assertEquals(Instant.parse("2026-10-25T08:00:00Z"), nextDose(s, Instant.parse("2026-10-25T06:00:00Z"), london))
+        assertEquals(Instant.parse("2026-10-25T20:00:00Z"), nextDose(s, Instant.parse("2026-10-25T08:00:00Z"), london))
     }
 
     @Test fun everyNHoursStopsAtEndDate() {
@@ -118,10 +120,21 @@ class NextDoseTest {
     @Test fun intervalsThatDontDivideADayRepeatTheSameTimesDaily() {
         val s = Schedule(ScheduleRule.EveryNHours(10, LocalDateTime.parse("2026-10-13T08:00")), LocalDate.parse("2026-10-13"))
         val day = { d: String -> dosesBetween(s, at("${d}T00:00"), at("${d}T23:59"), ist) }
-        // 8 AM, 6 PM and (from the day before) 4 AM; the same three times every day, not drifting.
-        assertEquals(listOf(at("2026-10-14T04:00"), at("2026-10-14T08:00"), at("2026-10-14T18:00")), day("2026-10-14"))
-        assertEquals(listOf(at("2026-10-20T04:00"), at("2026-10-20T08:00"), at("2026-10-20T18:00")), day("2026-10-20"))
-        // The first day has no 4 AM dose: the course starts at 8 AM.
+        // 8 AM and 6 PM every day; nothing after midnight, and the times don't drift.
         assertEquals(listOf(at("2026-10-13T08:00"), at("2026-10-13T18:00")), day("2026-10-13"))
+        assertEquals(listOf(at("2026-10-14T08:00"), at("2026-10-14T18:00")), day("2026-10-14"))
+        assertEquals(listOf(at("2026-10-20T08:00"), at("2026-10-20T18:00")), day("2026-10-20"))
+    }
+
+    @Test fun aDosesLastDayDoesNotSpillIntoTheNextDose() {
+        // Every 3 h from 6 AM, 13–26 Oct, then every 5 h from 27 Oct (as in the eye-drop schedule).
+        val first = Schedule(ScheduleRule.EveryNHours(3, LocalDateTime.parse("2026-10-13T06:00")), LocalDate.parse("2026-10-13"), LocalDate.parse("2026-10-26"))
+        val second = Schedule(ScheduleRule.EveryNHours(5, LocalDateTime.parse("2026-10-27T06:00")), LocalDate.parse("2026-10-27"), LocalDate.parse("2026-11-09"))
+        // 26 Oct ends at 9 PM: no 12 AM or 3 AM on the 27th from the first dose.
+        assertNull(nextDose(first, at("2026-10-26T21:00"), ist))
+        assertEquals(
+            listOf(at("2026-10-27T06:00"), at("2026-10-27T11:00"), at("2026-10-27T16:00"), at("2026-10-27T21:00")),
+            dosesBetween(second, at("2026-10-27T00:00"), at("2026-10-27T23:59"), ist),
+        )
     }
 }

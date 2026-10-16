@@ -37,9 +37,13 @@ fun ScheduleRule.describe(): String =
         }
     }
 
-/** An every-N-hours rule's times in each day's cycle, from the first dose (some may fall after midnight). */
+/**
+ * An every-N-hours rule's times on each day: from the first dose, every N hours until midnight. Each day stands
+ * alone, so a dose never spills past midnight into the next day (or into the next dose's dates).
+ */
 fun ScheduleRule.EveryNHours.dailyTimes(): List<java.time.LocalTime> {
     if (intervalHours <= 0) return emptyList()
     val first = anchor.toLocalTime()
-    return (0 until (24 + intervalHours - 1) / intervalHours).map { first.plusHours(it.toLong() * intervalHours) }
+    val minutesLeft = 24 * 60 - (first.hour * 60 + first.minute)
+    return (0 until (minutesLeft + intervalHours * 60 - 1) / (intervalHours * 60)).map { first.plusHours(it.toLong() * intervalHours) }
 }

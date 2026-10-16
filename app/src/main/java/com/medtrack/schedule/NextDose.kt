@@ -70,9 +70,8 @@ private fun nextOnDays(
 }
 
 /**
- * Every N hours, restarting each day at the first dose's clock time: every 10 hours from 8 AM is 8 AM, 6 PM and
- * 4 AM, every day. (Counting straight on from the first dose made intervals that don't divide 24 hours drift to
- * different times each day.) Intervals that do divide 24 (6, 8, 12) give the same times either way.
+ * Every N hours within each day, restarting each day at the first dose's clock time: every 10 hours from 8 AM is
+ * 8 AM and 6 PM, every day. A day's doses stop at midnight rather than running on into the next day.
  */
 private fun nextInterval(
     schedule: Schedule,
@@ -82,18 +81,15 @@ private fun nextInterval(
     skipDates: Set<LocalDate>,
 ): Instant? {
     if (rule.intervalHours <= 0) return null
-    val firstTime = rule.anchor.toLocalTime()
-    val perDay = (24 + rule.intervalHours - 1) / rule.intervalHours // doses starting less than 24h after the first
-    // A day's last doses can fall after midnight, so start from the day before [after].
-    var day = maxOf(rule.anchor.toLocalDate(), after.atZone(zone).toLocalDate().minusDays(1))
+    val times = rule.dailyTimes()
+    var day = maxOf(rule.anchor.toLocalDate(), schedule.startDate, after.atZone(zone).toLocalDate())
     repeat(MAX_DAYS) {
-        for (k in 0 until perDay) {
-            val local = day.atTime(firstTime).plusHours(k.toLong() * rule.intervalHours)
-            val candidate = local.atZone(zone).toInstant()
-            if (candidate <= after) continue
-            val date = local.toLocalDate()
-            if (schedule.endDate != null && date > schedule.endDate) return null
-            if (date >= schedule.startDate && date !in skipDates) return candidate
+        if (schedule.endDate != null && day > schedule.endDate) return null
+        if (day !in skipDates) {
+            for (time in times) {
+                val candidate = day.atTime(time).atZone(zone).toInstant()
+                if (candidate > after) return candidate
+            }
         }
         day = day.plusDays(1)
     }
