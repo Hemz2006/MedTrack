@@ -1,5 +1,7 @@
 package com.medtrack
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import com.medtrack.data.UiSettings
 import android.content.Context
 import android.util.Log
 import androidx.room.Room
@@ -32,6 +34,15 @@ class AppContainer(context: Context) {
         .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
         .build()
     val prefs = AppPrefs(context)
+
+    /** Theme and accessibility sizes; every screen (and the alarm) redraws when they change. */
+    val uiSettings = MutableStateFlow(prefs.uiSettings)
+
+    fun updateUiSettings(transform: (UiSettings) -> UiSettings) {
+        val next = transform(uiSettings.value)
+        prefs.uiSettings = next
+        uiSettings.value = next
+    }
     val photos = PhotoStore(context)
     val lookup = MedicationLookup(urlConnectionFetch)
     val brands = BrandIndex(context)

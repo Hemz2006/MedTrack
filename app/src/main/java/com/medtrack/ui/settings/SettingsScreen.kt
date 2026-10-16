@@ -1,5 +1,20 @@
 package com.medtrack.ui.settings
 
+import kotlin.math.roundToInt
+import com.medtrack.ui.common.islandBottom
+import com.medtrack.data.UiSettings
+import com.medtrack.data.ThemeMode
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.material3.Slider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -67,6 +82,7 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
     }
     val healthPermissions = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
 
+    val ui by c.uiSettings.collectAsStateWithLifecycle()
     ScreenScaffold(title = if (isSetup) "Set up reminders" else "Settings", isTab = true) { padding ->
         val s = status ?: return@ScreenScaffold
         Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
@@ -125,11 +141,25 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
                 trailingContent = { healthAction?.let { (label, action) -> TextButton(onClick = action) { Text(label) } } },
             )
 
+            HorizontalDivider(color = MaterialTheme.medColors.foil)
+            Appearance(ui.theme) { mode -> c.updateUiSettings { it.copy(theme = mode) } }
+
+            HorizontalDivider(color = MaterialTheme.medColors.foil)
+            Text("Accessibility", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
+            SizeSetting("Text size", UiSettings.TEXT_SCALES, ui.textScale) { v -> c.updateUiSettings { it.copy(textScale = v) } }
+            SizeSetting("Buttons and icons", UiSettings.SIZE_SCALES, ui.sizeScale) { v -> c.updateUiSettings { it.copy(sizeScale = v) } }
+            if (ui.textScale != 1f || ui.sizeScale != 1f) {
+                TextButton(onClick = { c.updateUiSettings { it.copy(textScale = 1f, sizeScale = 1f) } }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                    Text("Reset sizes")
+                }
+            }
+
             if (isSetup) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { c.prefs.setupDone = true; onSetupDone() }, modifier = Modifier.fillMaxWidth()) { Text("Done") }
                 }
             }
+            Spacer(Modifier.height(islandBottom()))
         }
     }
 }
@@ -183,3 +213,53 @@ private fun Context.open(intent: Intent) {
 
 private fun Context.openHealthConnectStore() =
     open(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata")))
+
+/** Light (green and white), dark, or following the phone. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Appearance(current: ThemeMode, onChange: (ThemeMode) -> Unit) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Appearance", style = MaterialTheme.typography.titleMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            ThemeMode.entries.forEachIndexed { i, mode ->
+                SegmentedButton(
+                    selected = mode == current,
+                    onClick = { onChange(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size),
+                ) { Text(mode.label) }
+            }
+        }
+        Text(
+            "Light is green and white. System follows your phone's dark mode.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.medColors.inkMuted,
+        )
+    }
+}
+
+private val SIZE_NAMES = listOf("Smaller", "Default", "Large", "Larger", "Largest")
+
+/**
+ * A five-step size slider. The new size applies when you let go, so the slider doesn't grow under your finger;
+ * the whole app, this page included, then redraws at that size.
+ */
+@Composable
+private fun SizeSetting(label: String, steps: List<Float>, current: Float, onChange: (Float) -> Unit) {
+    val savedIndex = steps.indexOfFirst { it == current }.takeIf { it >= 0 } ?: steps.indexOf(1f)
+    var dragging by remember(savedIndex) { mutableFloatStateOf(savedIndex.toFloat()) }
+    val index = dragging.roundToInt().coerceIn(steps.indices)
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(SIZE_NAMES[index], style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
+        }
+        Slider(
+            value = dragging,
+            onValueChange = { dragging = it },
+            onValueChangeFinished = { onChange(steps[index]) },
+            valueRange = 0f..(steps.size - 1).toFloat(),
+            steps = steps.size - 2,
+            modifier = Modifier.semantics { stateDescription = SIZE_NAMES[index] },
+        )
+    }
+}

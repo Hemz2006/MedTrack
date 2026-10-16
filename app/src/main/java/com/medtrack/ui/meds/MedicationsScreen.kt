@@ -1,5 +1,6 @@
 package com.medtrack.ui.meds
 
+import com.medtrack.ui.common.islandBottom
 import androidx.compose.ui.Alignment
 import com.medtrack.ui.common.FormIcon
 import com.medtrack.data.doseLineOn
@@ -69,7 +70,7 @@ fun MedicationsScreen(c: AppContainer, onAdd: () -> Unit, onOpen: (Long) -> Unit
             }
         } else {
             // Bottom padding keeps the last row clear of the extended FAB.
-            LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
+            LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(bottom = islandBottom() + 80.dp)) {
                 itemsIndexed(list, key = { _, it -> it.id }) { index, med ->
                     if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.medColors.foil)
                     MedicationRow(med) { onOpen(med.id) }

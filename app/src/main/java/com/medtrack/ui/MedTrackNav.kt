@@ -1,5 +1,8 @@
 package com.medtrack.ui
 
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import com.medtrack.ui.common.PillNavItem
 import com.medtrack.ui.common.PillNavigation
 import androidx.compose.foundation.layout.WindowInsets
@@ -45,25 +48,9 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            if (tabs.any { it.route == route }) {
-                PillNavigation(
-                    items = tabs.map { PillNavItem(it.route, it.label) },
-                    selectedId = route,
-                    onSelect = { target ->
-                        nav.navigate(target) {
-                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                )
-            }
-        },
-    ) { padding ->
-        NavHost(nav, startDestination = if (startOnSetup) Routes.SETTINGS else Routes.TODAY, modifier = Modifier.padding(padding)) {
+    // The island floats over the pages (it's see-through), rather than taking a strip of the screen.
+    Box(Modifier.fillMaxSize()) {
+        NavHost(nav, startDestination = if (startOnSetup) Routes.SETTINGS else Routes.TODAY, modifier = Modifier.fillMaxSize()) {
             composable(Routes.TODAY) {
                 TodayScreen(
                     c,
@@ -87,6 +74,20 @@ fun MedTrackNav(c: AppContainer, startOnSetup: Boolean) {
                 val id = entry.arguments!!.getLong("id")
                 DetailScreen(c, id, onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.edit(id)) })
             }
+        }
+        if (tabs.any { it.route == route }) {
+            PillNavigation(
+                items = tabs.map { PillNavItem(it.route, it.label) },
+                selectedId = route,
+                onSelect = { target ->
+                    nav.navigate(target) {
+                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }

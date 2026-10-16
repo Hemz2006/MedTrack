@@ -1,5 +1,7 @@
 package com.medtrack.ui.today
 
+import com.medtrack.ui.theme.medColors
+import androidx.compose.ui.graphics.luminance
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.RenderEffect
@@ -65,12 +67,14 @@ private val PANEL_PAD: Dp = 8.dp
 private val PANEL_RADIUS: Dp = 22.dp
 
 // Its colours: black ink, light text, a darker row under the highlighted option and a blue dot for the chosen one.
-private val Ink = Color(0xFF0E0E0E)
+private val Dot = Color(0xFF3B82F6)
 private val TriggerText = Color(0xFFF4F4F4)
 private val RowText = Color(0xFFDCDCDC)
-private val RowActive = Color(0xFF232323)
 private val Chevron = Color(0xFFCFCFCF)
-private val Dot = Color(0xFF3B82F6)
+
+/** The ink and highlighted-row colours: EasyUI's near-black in dark mode, the app's deep green in light mode. */
+private val Ink: Color @Composable get() = if (MaterialTheme.medColors.paper.luminance() < 0.5f) Color(0xFF0E0E0E) else MaterialTheme.medColors.ink
+private val RowActive: Color @Composable get() = if (MaterialTheme.medColors.paper.luminance() < 0.5f) Color(0xFF232323) else Color(0xFF1F5A45)
 
 // Its framer-motion springs, converted: Compose stiffness = k / m, damping ratio = c / (2·√(k·m)).
 private fun drop() = spring<Float>(dampingRatio = 0.55f, stiffness = 240f) //   240 / 17 / 1

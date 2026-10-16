@@ -1,5 +1,6 @@
 package com.medtrack.ui.today
 
+import com.medtrack.ui.common.islandBottom
 import com.medtrack.ui.common.MedAlert
 import com.medtrack.ui.common.AlertTone
 import androidx.compose.runtime.setValue
@@ -170,7 +171,7 @@ fun TodayScreen(
 
     Scaffold(
         snackbarHost = {
-            SnackbarHost(snackbar) { data ->
+            SnackbarHost(snackbar, Modifier.padding(bottom = islandBottom())) { data ->
                 MedAlert(
                     if (data.visuals.message.endsWith("taken")) AlertTone.SUCCESS else AlertTone.NEUTRAL, data.visuals.message, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     actionLabel = data.visuals.actionLabel, onAction = { data.performAction() }, onDismiss = { data.dismiss() },
@@ -187,7 +188,7 @@ fun TodayScreen(
             DayRing(s.date, s.items.progress(), hasDoses = s.items.isNotEmpty())
             DayControls(s.date, s.today, view, onDate = vm::showDate, onView = vm::setView)
             HorizontalDivider(color = MaterialTheme.medColors.foil)
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = islandBottom() + 16.dp)) {
                 if (s.isToday) {
                     items(warnings, key = { it.title }) { warning ->
                         MedAlert(

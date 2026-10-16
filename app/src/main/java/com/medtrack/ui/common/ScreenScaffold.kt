@@ -1,5 +1,8 @@
 package com.medtrack.ui.common
 
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -35,7 +38,8 @@ fun ScreenScaffold(
                 actions = actions,
             )
         },
-        floatingActionButton = fab,
+        // On tab pages the button sits above the floating navigation island.
+        floatingActionButton = { Box(if (isTab) Modifier.padding(bottom = islandBottom()) else Modifier) { fab() } },
         contentWindowInsets = if (isTab) WindowInsets(0, 0, 0, 0) else WindowInsets.navigationBars,
         content = content,
     )

@@ -25,16 +25,17 @@ data class MedTrackColors(
     val taken: Color,
 )
 
+/** Light mode: green and white. Deep-green ink on white (about 12:1), muted green text about 6:1. */
 val LightMedColors = MedTrackColors(
-    paper = Color(0xFFF7F9FB),
-    paperRaised = Color(0xFFFFFFFF),
-    ink = Color(0xFF16324F),
-    inkMuted = Color(0xFF4E6378),
-    foil = Color(0xFFC9D2DB),
+    paper = Color(0xFFFFFFFF),
+    paperRaised = Color(0xFFF2F8F5),
+    ink = Color(0xFF0F3D2E),
+    inkMuted = Color(0xFF4A6A5C),
+    foil = Color(0xFFD3E6DC),
     amber = Color(0xFFE07F00),
-    onAmber = Color(0xFF16324F),
+    onAmber = Color(0xFF0F3D2E),
     missed = Color(0xFFB8342C),
-    taken = Color(0xFF2E7A55),
+    taken = Color(0xFF157A4F),
 )
 
 val DarkMedColors = MedTrackColors(
@@ -58,12 +59,12 @@ val MaterialTheme.medColors: MedTrackColors
 internal fun lightScheme(m: MedTrackColors): ColorScheme = lightColorScheme(
     primary = m.ink,
     onPrimary = m.paper,
-    primaryContainer = Color(0xFFDCE6F0),
+    primaryContainer = Color(0xFFCDEBDD),
     onPrimaryContainer = m.ink,
     inversePrimary = Color(0xFFF4A23C),
     secondary = m.inkMuted,
     onSecondary = m.paper,
-    secondaryContainer = Color(0xFFDCE4EC),
+    secondaryContainer = Color(0xFFDCEFE5),
     onSecondaryContainer = m.ink,
     tertiary = m.amber,
     onTertiary = m.onAmber,
@@ -73,7 +74,7 @@ internal fun lightScheme(m: MedTrackColors): ColorScheme = lightColorScheme(
     onBackground = m.ink,
     surface = m.paper,
     onSurface = m.ink,
-    surfaceVariant = Color(0xFFE6EBF0),
+    surfaceVariant = Color(0xFFE5F1EB),
     onSurfaceVariant = m.inkMuted,
     surfaceTint = Color.Transparent,
     inverseSurface = m.ink,
@@ -86,12 +87,12 @@ internal fun lightScheme(m: MedTrackColors): ColorScheme = lightColorScheme(
     outlineVariant = m.foil,
     scrim = Color(0xFF000000),
     surfaceBright = m.paperRaised,
-    surfaceDim = Color(0xFFE6EBF0),
-    surfaceContainerLowest = m.paperRaised,
+    surfaceDim = Color(0xFFE5F1EB),
+    surfaceContainerLowest = m.paper,
     surfaceContainerLow = m.paperRaised,
     surfaceContainer = m.paperRaised,
-    surfaceContainerHigh = Color(0xFFEEF2F6),
-    surfaceContainerHighest = Color(0xFFE6EBF0),
+    surfaceContainerHigh = Color(0xFFEAF4EF),
+    surfaceContainerHighest = Color(0xFFE5F1EB),
 )
 
 internal fun darkScheme(m: MedTrackColors): ColorScheme = darkColorScheme(
