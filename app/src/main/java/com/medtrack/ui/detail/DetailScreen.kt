@@ -109,16 +109,6 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
             cropping = added
         }
     }
-    // Each new photo can be cropped before it's added to the medication.
-    if (cropping.isNotEmpty()) {
-        PhotoCropFlow(cropping, c.photos) { finals ->
-            cropping = emptyList()
-            c.appScope.launch {
-                val current = c.db.medicationDao().get(id)
-                if (current == null) finals.forEach(c.photos::delete) else c.medications.save(current.copy(photos = current.photos + finals))
-            }
-        }
-    }
     val pickPhotos = { addPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
     val m = med ?: return
     val zone = ZoneId.systemDefault()
@@ -177,6 +167,16 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
                 }
             }
             items(days, key = { it.date.toString() }) { day -> HistoryDayRow(day, zone) }
+        }
+    }
+    // Each new photo can be cropped before it's added to the medication.
+    if (cropping.isNotEmpty()) {
+        PhotoCropFlow(cropping, c.photos) { finals ->
+            cropping = emptyList()
+            c.appScope.launch {
+                val current = c.db.medicationDao().get(id)
+                if (current == null) finals.forEach(c.photos::delete) else c.medications.save(current.copy(photos = current.photos + finals))
+            }
         }
     }
 

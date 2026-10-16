@@ -86,7 +86,6 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
     }
 
     val med = state.med
-    if (state.pendingCrop.isNotEmpty()) PhotoCropFlow(state.pendingCrop, c.photos, vm::finishCrop)
     ScreenScaffold(
         title = if (id == 0L) "Add medication" else "Edit medication",
         isTab = false,
@@ -168,6 +167,7 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
             Button(onClick = vm::save, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Save") }
         }
     }
+    if (state.pendingCrop.isNotEmpty()) PhotoCropFlow(state.pendingCrop, c.photos, vm::finishCrop)
 }
 
 /** A titled group of fields; sections sit 24dp apart. */

@@ -1,10 +1,16 @@
 package com.medtrack.ui.common
 
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -46,8 +51,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.medtrack.data.PhotoStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +58,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * After photos are added, offers to crop each one in turn. Cropping replaces the photo's file; "Use whole photo"
+ * After photos are added, offers to crop each one in turn, as a full-screen layer: call it after the screen's own
+ * content so it draws on top. Cropping replaces the photo's file; "Use whole photo"
  * keeps it as taken. [onFinished] gets the final paths, in order, once every photo has been seen.
  * The [pending] files must be new (not yet saved anywhere), since a cropped original is deleted.
  */
@@ -100,8 +104,16 @@ private fun CropScreen(path: String, title: String, working: Boolean, onUseWhole
     }
     var frame by remember(path) { mutableStateOf(CropFrame.START) }
 
-    Dialog(onDismissRequest = onUseWhole, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Column(Modifier.fillMaxSize().background(Color.Black).safeDrawingPadding().padding(16.dp)) {
+    // A full-screen layer in the app's own window (a dialog window on Android 15 runs under the navigation bar).
+    // It takes every touch, so the screen underneath can't be used meanwhile; Back keeps the whole photo.
+    BackHandler(onBack = onUseWhole)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume() } },
+    ) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp)) {
             Text(title, color = Color.White, style = MaterialTheme.typography.titleMedium)
             Text(
                 "Drag the frame to move it, or its corners to resize.",
@@ -142,24 +154,26 @@ private fun CropScreen(path: String, title: String, working: Boolean, onUseWhole
 @Composable
 private fun CropOverlay(frame: CropFrame, onChange: (CropFrame) -> Unit) {
     val reach = with(LocalDensity.current) { 28.dp.toPx() }
-    var handle by remember { mutableStateOf<CropHandle?>(null) }
-    var current by remember { mutableStateOf(frame) }
-    current = frame
+    val latest by rememberUpdatedState(frame)
     Canvas(
         Modifier
             .fillMaxSize()
             .semantics { contentDescription = "Crop frame" }
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { at ->
-                        handle = current.handleAt(at.x / size.width, at.y / size.height, reach / size.width, reach / size.height)
-                    },
-                    onDragEnd = { handle = null },
-                    onDragCancel = { handle = null },
-                ) { change, drag ->
-                    val h = handle ?: return@detectDragGestures
-                    change.consume()
-                    onChange(current.resized(h, drag.x / size.width, drag.y / size.height))
+                awaitEachGesture {
+                    // Which part was grabbed is decided where the finger lands, before it moves.
+                    val down = awaitFirstDown()
+                    var f = latest
+                    val handle = f.handleAt(down.position.x / size.width, down.position.y / size.height, reach / size.width, reach / size.height)
+                        ?: return@awaitEachGesture
+                    down.consume()
+                    // The frame is carried through the drag here, so fast moves never apply to a stale copy.
+                    drag(down.id) { change ->
+                        val delta = change.positionChange()
+                        change.consume()
+                        f = f.resized(handle, delta.x / size.width, delta.y / size.height)
+                        onChange(f)
+                    }
                 }
             },
     ) {

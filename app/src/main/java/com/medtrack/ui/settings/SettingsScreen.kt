@@ -293,7 +293,7 @@ private fun AlarmColorSetting(current: AlarmColor, onChange: (AlarmColor) -> Uni
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(Color(color.background))
-                        .border(if (chosen) 3.dp else 1.dp, if (chosen) MaterialTheme.medColors.ink else MaterialTheme.medColors.foil, CircleShape)
+                        .border(if (chosen) 3.dp else 1.5.dp, if (chosen) MaterialTheme.medColors.ink else MaterialTheme.medColors.inkMuted, CircleShape)
                         .selectable(selected = chosen, role = Role.RadioButton, onClick = { onChange(color) })
                         .semantics { contentDescription = "${color.label} alarm" },
                     contentAlignment = Alignment.Center,
@@ -326,7 +326,7 @@ private fun AlarmTextColorSetting(ui: UiSettings, onChange: (AlarmTextColor) -> 
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(background)
-                        .border(if (chosen) 3.dp else 1.dp, if (chosen) MaterialTheme.medColors.ink else MaterialTheme.medColors.foil, CircleShape)
+                        .border(if (chosen) 3.dp else 1.5.dp, if (chosen) MaterialTheme.medColors.ink else MaterialTheme.medColors.inkMuted, CircleShape)
                         .selectable(selected = chosen, role = Role.RadioButton, onClick = { onChange(option) })
                         .semantics { contentDescription = "${option.label} alarm text" },
                     contentAlignment = Alignment.Center,
