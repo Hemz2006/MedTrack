@@ -63,7 +63,7 @@ import java.time.ZoneId
 class AlarmActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // System bar icons match the alarm's text: dark on amber, light on the darker colours.
-        val darkText = Color(container.uiSettings.value.alarmColor.content).luminance() < 0.5f
+        val darkText = Color(container.uiSettings.value.alarmContent).luminance() < 0.5f
         val bars = if (darkText) SystemBarStyle.light(TRANSPARENT, TRANSPARENT) else SystemBarStyle.dark(TRANSPARENT)
         enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         super.onCreate(savedInstanceState)
@@ -89,7 +89,7 @@ private fun AlarmScreen(c: AppContainer, onEmpty: () -> Unit) {
     val items = due ?: return
     val settings by c.uiSettings.collectAsStateWithLifecycle()
     val background = Color(settings.alarmColor.background)
-    val content = Color(settings.alarmColor.content)
+    val content = Color(settings.alarmContent)
 
     Surface(color = background, contentColor = content, modifier = Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalAlarmBackground provides background) {

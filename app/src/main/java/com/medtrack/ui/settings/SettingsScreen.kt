@@ -1,5 +1,7 @@
 package com.medtrack.ui.settings
 
+import androidx.compose.ui.graphics.luminance
+import com.medtrack.data.AlarmTextColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
@@ -159,6 +161,7 @@ fun SettingsScreen(c: AppContainer, isSetup: Boolean, onSetupDone: () -> Unit) {
             SizeSetting("Text size", UiSettings.TEXT_SCALES, ui.textScale) { v -> c.updateUiSettings { it.copy(textScale = v) } }
             SizeSetting("Buttons and icons", UiSettings.SIZE_SCALES, ui.sizeScale) { v -> c.updateUiSettings { it.copy(sizeScale = v) } }
             AlarmColorSetting(ui.alarmColor) { color -> c.updateUiSettings { it.copy(alarmColor = color) } }
+            AlarmTextColorSetting(ui) { text -> c.updateUiSettings { it.copy(alarmTextColor = text) } }
             if (ui.textScale != 1f || ui.sizeScale != 1f) {
                 TextButton(onClick = { c.updateUiSettings { it.copy(textScale = 1f, sizeScale = 1f) } }, modifier = Modifier.padding(horizontal = 8.dp)) {
                     Text("Reset sizes")
@@ -300,4 +303,50 @@ private fun AlarmColorSetting(current: AlarmColor, onChange: (AlarmColor) -> Uni
             }
         }
     }
+}
+
+/**
+ * The alarm's text colour: each swatch shows "Aa" in that colour on the chosen alarm colour, so the choice is
+ * previewed. A pairing below 3:1 contrast gets a warning, since the alarm is read at a glance, often half asleep.
+ */
+@Composable
+private fun AlarmTextColorSetting(ui: UiSettings, onChange: (AlarmTextColor) -> Unit) {
+    val background = Color(ui.alarmColor.background)
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Alarm text colour", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(ui.alarmTextColor.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
+        }
+        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AlarmTextColor.entries.forEach { option ->
+                val chosen = option == ui.alarmTextColor
+                val ink = Color(option.argb ?: ui.alarmColor.content)
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(background)
+                        .border(if (chosen) 3.dp else 1.dp, if (chosen) MaterialTheme.medColors.ink else MaterialTheme.medColors.foil, CircleShape)
+                        .selectable(selected = chosen, role = Role.RadioButton, onClick = { onChange(option) })
+                        .semantics { contentDescription = "${option.label} alarm text" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (option == AlarmTextColor.AUTO) "A" else "Aa", color = ink, style = MaterialTheme.typography.titleSmall)
+                }
+            }
+        }
+        if (contrast(Color(ui.alarmContent), background) < 3f) {
+            Text(
+                "This text colour is hard to read on ${ui.alarmColor.label.lowercase()}. Automatic picks a readable one.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.medColors.missed,
+            )
+        }
+    }
+}
+
+/** WCAG contrast ratio between two colours (1 to 21). */
+private fun contrast(a: Color, b: Color): Float {
+    val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
+    return (hi + 0.05f) / (lo + 0.05f)
 }

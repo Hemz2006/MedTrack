@@ -33,12 +33,14 @@ class AppPrefs(context: Context) {
             textScale = prefs.getFloat(KEY_TEXT_SCALE, 1f),
             sizeScale = prefs.getFloat(KEY_SIZE_SCALE, 1f),
             alarmColor = AlarmColor.entries.firstOrNull { it.name == prefs.getString(KEY_ALARM_COLOR, null) } ?: AlarmColor.AMBER,
+            alarmTextColor = AlarmTextColor.entries.firstOrNull { it.name == prefs.getString(KEY_ALARM_TEXT, null) } ?: AlarmTextColor.AUTO,
         )
         set(value) = prefs.edit()
             .putString(KEY_THEME, value.theme.name)
             .putFloat(KEY_TEXT_SCALE, value.textScale)
             .putFloat(KEY_SIZE_SCALE, value.sizeScale)
             .putString(KEY_ALARM_COLOR, value.alarmColor.name)
+            .putString(KEY_ALARM_TEXT, value.alarmTextColor.name)
             .apply()
 
     private companion object {
@@ -46,6 +48,7 @@ class AppPrefs(context: Context) {
         const val KEY_TEXT_SCALE = "textScale"
         const val KEY_SIZE_SCALE = "sizeScale"
         const val KEY_ALARM_COLOR = "alarmColor"
+        const val KEY_ALARM_TEXT = "alarmTextColor"
         const val KEY_HEALTH_WARNING_HIDDEN = "healthWarningHidden"
         const val KEY_LAST_SCAN = "lastScanAt"
         const val KEY_SETUP_DONE = "setupDone"
