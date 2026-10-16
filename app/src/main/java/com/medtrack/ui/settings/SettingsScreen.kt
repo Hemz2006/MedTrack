@@ -1,16 +1,17 @@
 package com.medtrack.ui.settings
 
-import kotlin.math.roundToInt
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.OutlinedIconButton
 import com.medtrack.ui.common.islandBottom
 import com.medtrack.data.UiSettings
 import com.medtrack.data.ThemeMode
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.material3.Slider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SegmentedButton
@@ -240,26 +241,25 @@ private fun Appearance(current: ThemeMode, onChange: (ThemeMode) -> Unit) {
 private val SIZE_NAMES = listOf("Smaller", "Default", "Large", "Larger", "Largest")
 
 /**
- * A five-step size slider. The new size applies when you let go, so the slider doesn't grow under your finger;
- * the whole app, this page included, then redraws at that size.
+ * A five-step size control: − and + around the current size's name. Buttons rather than a slider, so scrolling
+ * the page can't nudge the size by accident (a slider jumps to wherever a finger lands).
  */
 @Composable
 private fun SizeSetting(label: String, steps: List<Float>, current: Float, onChange: (Float) -> Unit) {
-    val savedIndex = steps.indexOfFirst { it == current }.takeIf { it >= 0 } ?: steps.indexOf(1f)
-    var dragging by remember(savedIndex) { mutableFloatStateOf(savedIndex.toFloat()) }
-    val index = dragging.roundToInt().coerceIn(steps.indices)
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text(SIZE_NAMES[index], style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.medColors.inkMuted)
+    val index = steps.indexOfFirst { it == current }.takeIf { it >= 0 } ?: steps.indexOf(1f)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        OutlinedIconButton(onClick = { onChange(steps[index - 1]) }, enabled = index > 0) {
+            Text("−", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { contentDescription = "Smaller $label" })
         }
-        Slider(
-            value = dragging,
-            onValueChange = { dragging = it },
-            onValueChangeFinished = { onChange(steps[index]) },
-            valueRange = 0f..(steps.size - 1).toFloat(),
-            steps = steps.size - 2,
-            modifier = Modifier.semantics { stateDescription = SIZE_NAMES[index] },
+        Text(
+            SIZE_NAMES[index],
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(84.dp).semantics { liveRegion = LiveRegionMode.Polite },
         )
+        OutlinedIconButton(onClick = { onChange(steps[index + 1]) }, enabled = index < steps.lastIndex) {
+            Text("+", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { contentDescription = "Larger $label" })
+        }
     }
 }
