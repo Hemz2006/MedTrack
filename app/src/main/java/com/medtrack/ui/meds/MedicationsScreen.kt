@@ -1,5 +1,19 @@
 package com.medtrack.ui.meds
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.medtrack.data.Pharmacy
 import com.medtrack.ui.common.islandBottom
 import androidx.compose.ui.Alignment
 import com.medtrack.ui.common.FormIcon
@@ -103,6 +117,34 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
             }
             Text(med.steps.describeOn(java.time.LocalDate.now()), style = MaterialTheme.typography.bodyMedium, color = if (med.active) colors.ink else colors.inkMuted)
             if (!med.active) TextTag("Paused", colors.inkMuted, Modifier.padding(top = 4.dp))
+        }
+        OrderButton(med.title)
+    }
+}
+
+/** "Order", then a choice of pharmacy: opens its search results for [name] in the pharmacy's app or the browser. */
+@Composable
+private fun OrderButton(name: String) {
+    val context = LocalContext.current
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Order $name" }) {
+            Text("Order")
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            Pharmacy.entries.forEach { pharmacy ->
+                DropdownMenuItem(
+                    text = { Text(pharmacy.label) },
+                    onClick = {
+                        open = false
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pharmacy.searchUrl(name))))
+                        } catch (e: ActivityNotFoundException) {
+                            Toast.makeText(context, "No browser to open ${pharmacy.label}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                )
+            }
         }
     }
 }
