@@ -83,18 +83,21 @@ import java.time.ZoneId
 data class TodayState(val items: List<TodayItem>, val hasMedications: Boolean, val now: Instant, val zone: ZoneId, val date: LocalDate) {
     val today: LocalDate get() = now.atZone(zone).toLocalDate()
     val isToday: Boolean get() = date == today
+
+    /** A day still to come: its doses are planned, and can't be ticked off yet. */
+    val isFuture: Boolean get() = date > today
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TodayViewModel(private val c: AppContainer) : ViewModel() {
     private val ticker = flow { while (true) { emit(Unit); delay(30_000) } }
 
-    /** A past day being looked at, or null for today (which then follows the clock past midnight). */
+    /** A past or future day being looked at, or null for today (which then follows the clock past midnight). */
     private val chosen = MutableStateFlow<LocalDate?>(null)
     val view = MutableStateFlow(TodayView.from(c.prefs.todayView))
 
     fun showDate(date: LocalDate) {
-        chosen.value = date.takeIf { it < LocalDate.now() }
+        chosen.value = date.takeIf { it != LocalDate.now() }
     }
 
     fun setView(view: TodayView) {
@@ -185,7 +188,7 @@ fun TodayScreen(
             if (ticked) record(item, DoseStatus.TAKEN) else c.appScope.launch { untickDose(c, item) }
         }
         Column(Modifier.padding(padding).fillMaxSize()) {
-            DayRing(s.date, s.items.progress(), hasDoses = s.items.isNotEmpty())
+            DayRing(s.date, s.items.progress(), hasDoses = s.items.isNotEmpty(), future = s.isFuture)
             DayControls(s.date, s.today, view, onDate = vm::showDate, onView = vm::setView)
             HorizontalDivider(color = MaterialTheme.medColors.foil)
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = islandBottom() + 16.dp)) {
@@ -200,14 +203,14 @@ fun TodayScreen(
                     }
                 }
                 if (s.items.isEmpty()) {
-                    item(key = "empty") { EmptyDay(s.hasMedications, s.isToday, onAddMedication) }
+                    item(key = "empty") { EmptyDay(s.hasMedications, s.isToday, s.isFuture, onAddMedication) }
                 }
                 when (view) {
                     TodayView.TIME -> groupToday(s.items, s.zone).forEach { group ->
                         val dueNow = group.isDueNow(s.now)
                         item(key = group.key) { GroupHeader(group, dueNow) }
                         items(group.items, key = { it.stableKey }) { item ->
-                            DoseRow(item, s.now, s.zone, dueNow, onTick = { onTick(item, it) }, onMore = { sheetItem = item })
+                            DoseRow(item, s.now, s.zone, dueNow, onTick = { onTick(item, it) }, onMore = { sheetItem = item }, enabled = !s.isFuture)
                         }
                     }
                     TodayView.MEDICATION -> {
@@ -215,7 +218,7 @@ fun TodayScreen(
                         days.forEachIndexed { index, day ->
                             item(key = "med-${day.medication.id}") {
                                 if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.medColors.foil)
-                                MedicationDayCard(day, s.now, s.zone, onTick = onTick, onMore = { sheetItem = it })
+                                MedicationDayCard(day, s.now, s.zone, onTick = onTick, onMore = { sheetItem = it }, enabled = !s.isFuture)
                             }
                         }
                     }
@@ -237,9 +240,11 @@ fun TodayScreen(
 }
 
 @Composable
-private fun EmptyDay(hasMedications: Boolean, isToday: Boolean, onAddMedication: () -> Unit) {
+private fun EmptyDay(hasMedications: Boolean, isToday: Boolean, isFuture: Boolean, onAddMedication: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (!isToday) {
+        if (isFuture) {
+            Text("No doses scheduled on this day.", style = MaterialTheme.typography.bodyLarge)
+        } else if (!isToday) {
             Text("No doses were recorded on this day.", style = MaterialTheme.typography.bodyLarge)
         } else if (hasMedications) {
             Text("No doses scheduled today.", style = MaterialTheme.typography.bodyLarge)

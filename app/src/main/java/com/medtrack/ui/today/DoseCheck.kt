@@ -64,6 +64,7 @@ fun DoseCheck(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     stacked: Boolean = false,
+    enabled: Boolean = true,
     label: String = item.statusText(zone, separator = if (stacked) "\n" else " "),
 ) {
     val colors = MaterialTheme.medColors
@@ -79,10 +80,11 @@ fun DoseCheck(
         Checkbox(
             checked = taken,
             onCheckedChange = null, // the whole control toggles, so the label is part of the touch target
+            enabled = enabled,
             colors = CheckboxDefaults.colors(checkedColor = colors.taken, uncheckedColor = tone, checkmarkColor = colors.paper),
         )
     }
-    val toggle = modifier.heightIn(min = 48.dp).toggleable(value = taken, role = Role.Checkbox, onValueChange = onCheckedChange)
+    val toggle = modifier.heightIn(min = 48.dp).toggleable(value = taken, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange)
     if (stacked) {
         Column(toggle.widthIn(min = 56.dp, max = 88.dp).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             box()

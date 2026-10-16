@@ -39,6 +39,22 @@ class PhotoStore(private val context: Context) {
         file.absolutePath
     }
 
+    /**
+     * Saves the part of the photo at [path] between the given fractions (0..1) of its width and height as a new
+     * photo, and returns its path. The original is left for the caller to delete.
+     */
+    suspend fun crop(path: String, left: Float, top: Float, right: Float, bottom: Float): String = withContext(Dispatchers.IO) {
+        val source = BitmapFactory.decodeFile(path) ?: error("Could not read the photo")
+        val x = (left * source.width).toInt().coerceIn(0, source.width - 1)
+        val y = (top * source.height).toInt().coerceIn(0, source.height - 1)
+        val w = ((right - left) * source.width).toInt().coerceIn(1, source.width - x)
+        val h = ((bottom - top) * source.height).toInt().coerceIn(1, source.height - y)
+        val cropped = Bitmap.createBitmap(source, x, y, w, h)
+        val file = File(photosDir, "${UUID.randomUUID()}.jpg")
+        FileOutputStream(file).use { cropped.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        file.absolutePath
+    }
+
     fun delete(path: String?) {
         val file = path?.let(::File) ?: return
         if (file.parentFile?.absolutePath == photosDir.absolutePath) file.delete()

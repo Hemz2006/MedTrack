@@ -57,6 +57,7 @@ private val SHORT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d M
 /** "Today", "Yesterday" or "Mon 12 Oct". */
 fun dayName(date: LocalDate, today: LocalDate): String = when (date) {
     today -> "Today"
+    today.plusDays(1) -> "Tomorrow"
     today.minusDays(1) -> "Yesterday"
     else -> SHORT_DATE.format(date)
 }
@@ -81,15 +82,15 @@ internal fun DayControls(
         TextButton(onClick = { picking = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
             Text(dayName(date, today), maxLines = 1)
         }
-        IconButton(onClick = { onDate(date.plusDays(1)) }, enabled = date < today) {
+        IconButton(onClick = { onDate(date.plusDays(1)) }, enabled = date < today.plusYears(1)) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next day")
         }
         Spacer(Modifier.weight(1f))
         GooeyMenu(TodayView.entries, view, label = { it.label }, onSelect = onView)
     }
     if (picking) {
-        // History only: days after today have nothing recorded yet.
-        DatePickDialog(date, onDismiss = { picking = false }, maxDate = today) { picked -> picking = false; onDate(picked) }
+        // Past days show what was recorded; future days (up to a year ahead) show what's planned.
+        DatePickDialog(date, onDismiss = { picking = false }, maxDate = today.plusYears(1)) { picked -> picking = false; onDate(picked) }
     }
 }
 
@@ -98,12 +99,13 @@ internal fun DayControls(
  * Beside it, the full date and "3 of 5 doses taken".
  */
 @Composable
-internal fun DayRing(date: LocalDate, progress: DayProgress, hasDoses: Boolean) {
+internal fun DayRing(date: LocalDate, progress: DayProgress, hasDoses: Boolean, future: Boolean = false) {
     val colors = MaterialTheme.medColors
     val done = hasDoses && progress.taken == progress.total
     val fill by animateFloatAsState(progress.fraction, animationSpec = tween(400), label = "day ring")
     val status = when {
         !hasDoses -> null
+        future -> if (progress.total == 1) "1 dose planned" else "${progress.total} doses planned"
         done -> "All ${progress.total} doses taken"
         else -> "${progress.taken} of ${progress.total} doses taken"
     }

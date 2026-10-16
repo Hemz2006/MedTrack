@@ -1,5 +1,6 @@
 package com.medtrack.ui.edit
 
+import com.medtrack.ui.common.PhotoCropFlow
 import com.medtrack.ui.common.MedAlert
 import com.medtrack.ui.common.AlertTone
 import android.net.Uri
@@ -85,6 +86,7 @@ fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
     }
 
     val med = state.med
+    if (state.pendingCrop.isNotEmpty()) PhotoCropFlow(state.pendingCrop, c.photos, vm::finishCrop)
     ScreenScaffold(
         title = if (id == 0L) "Add medication" else "Edit medication",
         isTab = false,

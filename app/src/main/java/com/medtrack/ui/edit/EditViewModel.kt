@@ -30,6 +30,8 @@ import java.time.LocalDate
 
 data class EditState(
     val loaded: Boolean = false,
+    /** Photos just added, waiting to be cropped (or kept whole) before they join the medication. */
+    val pendingCrop: List<String> = emptyList(),
     val med: MedicationEntity,
     val suggestions: List<Suggestion> = emptyList(),
     val brandSuggestions: List<Brand> = emptyList(),
@@ -159,6 +161,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
     fun addPhotos(uris: List<Uri>) {
         viewModelScope.launch {
             var failed = 0
+            val imported = mutableListOf<String>()
             for (uri in uris) {
                 val path = try {
                     c.photos.importFrom(uri)
@@ -168,10 +171,16 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
                     failed++
                     continue
                 }
-                update { it.copy(photos = it.photos + path) }
+                imported += path
             }
+            if (imported.isNotEmpty()) _state.update { it.copy(pendingCrop = it.pendingCrop + imported) }
             if (failed > 0) _state.update { it.copy(error = if (failed == 1) "Couldn't load one photo" else "Couldn't load $failed photos") }
         }
+    }
+
+    /** The crop step is done: add the photos as cropped (or whole). */
+    fun finishCrop(paths: List<String>) {
+        _state.update { it.copy(pendingCrop = emptyList(), med = it.med.copy(photos = it.med.photos + paths), error = null) }
     }
 
     fun removePhoto(path: String) {
@@ -217,6 +226,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long) : ViewMod
     }
 
     override fun onCleared() {
+        _state.value.pendingCrop.forEach(c.photos::delete)
         if (!_state.value.saved && !_state.value.saving) (_state.value.med.photos - savedPhotos.toSet()).forEach(c.photos::delete)
     }
 }

@@ -133,4 +133,12 @@ class TodayModelTest {
         assertEquals(TodayView.MEDICATION, TodayView.from("medication"))
         assertEquals(TodayView.TIME, TodayView.from("anything else"))
     }
+
+    @Test fun futureDayShowsItsPlannedDoses() {
+        val tomorrow = buildDay(listOf(daily), emptyList(), LocalDate.parse("2026-10-14"), at("2026-10-13T12:00"), zone)
+        assertEquals(listOf(at("2026-10-14T08:00"), at("2026-10-14T21:00")), tomorrow.map { it.dueAt })
+        assertEquals(listOf<DoseStatus?>(null, null), tomorrow.map { it.status })
+        assertEquals(DayProgress(0, 2), tomorrow.progress())
+        assertEquals("Tomorrow", dayName(LocalDate.parse("2026-10-14"), LocalDate.parse("2026-10-13")))
+    }
 }

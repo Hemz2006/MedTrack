@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.stateDescription
@@ -62,6 +63,7 @@ fun MedicationDayCard(
     zone: ZoneId,
     onTick: (TodayItem, Boolean) -> Unit,
     onMore: (TodayItem) -> Unit,
+    enabled: Boolean = true,
 ) {
     val med = day.medication
     val date = day.items.first().dueAt.atZone(zone).toLocalDate()
@@ -81,7 +83,7 @@ fun MedicationDayCard(
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             day.items.forEach { item ->
-                DoseTile(item, now, zone, onTick = { onTick(item, it) }, onMore = { onMore(item) })
+                DoseTile(item, now, zone, onTick = { onTick(item, it) }, onMore = { onMore(item) }, enabled = enabled)
             }
         }
     }
@@ -90,7 +92,7 @@ fun MedicationDayCard(
 /** One dose as a rectangle: its time, filled green with a tick once taken. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DoseTile(item: TodayItem, now: Instant, zone: ZoneId, onTick: (Boolean) -> Unit, onMore: () -> Unit) {
+private fun DoseTile(item: TodayItem, now: Instant, zone: ZoneId, onTick: (Boolean) -> Unit, onMore: () -> Unit, enabled: Boolean) {
     val colors = MaterialTheme.medColors
     val taken = item.status == DoseStatus.TAKEN
     val time = TIME.format(item.dueAt.atZone(zone))
@@ -112,13 +114,13 @@ private fun DoseTile(item: TodayItem, now: Instant, zone: ZoneId, onTick: (Boole
             .heightIn(min = 44.dp)
             .clip(LabelShape)
             .then(if (taken) Modifier.background(colors.taken) else Modifier.border(BorderStroke(if (note == null) 1.dp else 2.dp, edge), LabelShape))
-            .combinedClickable(onClick = { onTick(!taken) }, onLongClick = onMore)
+            .combinedClickable(enabled = enabled, onClick = { onTick(!taken) }, onLongClick = onMore)
             .clearAndSetSemantics {
                 role = Role.Checkbox
                 toggleableState = ToggleableState(taken)
                 contentDescription = "${item.medication.displayName()} $time"
                 stateDescription = spoken
-                onLongClick("More actions") { onMore(); true }
+                if (enabled) onLongClick("More actions") { onMore(); true } else disabled()
             }
             .padding(horizontal = 10.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

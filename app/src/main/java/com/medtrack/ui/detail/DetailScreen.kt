@@ -1,5 +1,6 @@
 package com.medtrack.ui.detail
 
+import com.medtrack.ui.common.PhotoCropFlow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.geometry.CornerRadius
@@ -90,7 +91,8 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    // Photos picked here are added straight to the medication; the first one becomes its main photo if it had none.
+    // Photos picked here are cropped, then added to the medication; the first becomes its main photo if it had none.
+    var cropping by remember { mutableStateOf(emptyList<String>()) }
     val addPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         c.appScope.launch {
@@ -104,8 +106,17 @@ fun DetailScreen(c: AppContainer, id: Long, onBack: () -> Unit, onEdit: () -> Un
                     null
                 }
             }
-            val current = c.db.medicationDao().get(id)
-            if (current == null) added.forEach(c.photos::delete) else c.medications.save(current.copy(photos = current.photos + added))
+            cropping = added
+        }
+    }
+    // Each new photo can be cropped before it's added to the medication.
+    if (cropping.isNotEmpty()) {
+        PhotoCropFlow(cropping, c.photos) { finals ->
+            cropping = emptyList()
+            c.appScope.launch {
+                val current = c.db.medicationDao().get(id)
+                if (current == null) finals.forEach(c.photos::delete) else c.medications.save(current.copy(photos = current.photos + finals))
+            }
         }
     }
     val pickPhotos = { addPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }

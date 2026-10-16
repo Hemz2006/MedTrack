@@ -69,6 +69,7 @@ fun DoseRow(
     dueNow: Boolean,
     onTick: (Boolean) -> Unit,
     onMore: () -> Unit,
+    enabled: Boolean = true,
 ) {
     // At large font sizes there is no room beside the name, so the status/actions go underneath it.
     val stacked = LocalDensity.current.fontScale >= 1.5f
@@ -76,6 +77,7 @@ fun DoseRow(
         Modifier.fillMaxWidth()
             .dueRule(dueNow)
             .combinedClickable(
+                enabled = enabled,
                 onClick = onMore,
                 onClickLabel = "More actions",
                 onLongClick = onMore,
@@ -103,12 +105,12 @@ fun DoseRow(
             }
             if (stacked) {
                 Spacer(Modifier.height(4.dp))
-                DoseCheck(item, now, zone, onTick)
+                DoseCheck(item, now, zone, onTick, enabled = enabled)
             }
         }
         if (!stacked) {
             Spacer(Modifier.width(12.dp))
-            DoseCheck(item, now, zone, onTick, stacked = true)
+            DoseCheck(item, now, zone, onTick, stacked = true, enabled = enabled)
         }
     }
 }
