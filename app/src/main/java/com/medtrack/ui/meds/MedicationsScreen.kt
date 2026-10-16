@@ -1,5 +1,8 @@
 package com.medtrack.ui.meds
 
+import com.medtrack.data.orderSearches
+import androidx.compose.ui.semantics.heading
+import androidx.compose.foundation.layout.widthIn
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -118,32 +121,47 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
             Text(med.steps.describeOn(java.time.LocalDate.now()), style = MaterialTheme.typography.bodyMedium, color = if (med.active) colors.ink else colors.inkMuted)
             if (!med.active) TextTag("Paused", colors.inkMuted, Modifier.padding(top = 4.dp))
         }
-        OrderButton(med.title)
+        OrderButton(med)
     }
 }
 
-/** "Order", then a choice of pharmacy: opens its search results for [name] in the pharmacy's app or the browser. */
+/**
+ * "Order", then a choice of pharmacy for each name the medication goes by (the name on the pack, then the generic
+ * name): opens that pharmacy's search results in its app or the browser.
+ */
 @Composable
-private fun OrderButton(name: String) {
+private fun OrderButton(med: MedicationEntity) {
     val context = LocalContext.current
+    val searches = remember(med) { med.orderSearches() }
+    if (searches.isEmpty()) return
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Order $name" }) {
+        TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Order ${med.title}" }) {
             Text("Order")
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            Pharmacy.entries.forEach { pharmacy ->
-                DropdownMenuItem(
-                    text = { Text(pharmacy.label) },
-                    onClick = {
-                        open = false
-                        try {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pharmacy.searchUrl(name))))
-                        } catch (e: ActivityNotFoundException) {
-                            Toast.makeText(context, "No browser to open ${pharmacy.label}", Toast.LENGTH_SHORT).show()
-                        }
-                    },
+            searches.forEachIndexed { index, search ->
+                if (index > 0) HorizontalDivider(color = MaterialTheme.medColors.foil)
+                Text(
+                    "${search.label}: ${search.term}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.medColors.inkMuted,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(max = 280.dp).semantics { heading() },
                 )
+                Pharmacy.entries.forEach { pharmacy ->
+                    DropdownMenuItem(
+                        text = { Text(pharmacy.label) },
+                        modifier = Modifier.semantics { contentDescription = "${pharmacy.label}, search ${search.term}" },
+                        onClick = {
+                            open = false
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pharmacy.searchUrl(search.term))))
+                            } catch (e: ActivityNotFoundException) {
+                                Toast.makeText(context, "No browser to open ${pharmacy.label}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    )
+                }
             }
         }
     }
