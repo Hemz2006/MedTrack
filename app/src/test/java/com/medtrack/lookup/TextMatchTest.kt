@@ -3,11 +3,11 @@ package com.medtrack.lookup
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class PrescriptionMatchTest {
+class TextMatchTest {
     private fun brand(name: String, composition: String = "x", discontinued: Boolean = false) =
         Candidate(Brand(name, composition, null), discontinued)
 
-    @Test fun picksMedicineWordsAndTheirStrength() {
+    @Test fun picksPossibleNamesAndTheirStrength() {
         val text = """
             Dr. A. Kumar MBBS
             Patient name: Ravi   Age 45
@@ -16,12 +16,12 @@ class PrescriptionMatchTest {
         """.trimIndent()
         assertEquals(
             listOf(ReadName("Kumar", null), ReadName("Ravi", null), ReadName("Pantonix", "40"), ReadName("Dolo", "650")),
-            namesInPrescription(text),
+            possibleNames(text),
         )
     }
 
     @Test fun skipsWordsMixedWithDigits() {
-        assertEquals(emptyList<ReadName>(), namesInPrescription("BD 1-0-1 10ml x5"))
+        assertEquals(emptyList<ReadName>(), possibleNames("BD 1-0-1 10ml x5"))
     }
 
     @Test fun matchesAMisreadLetter() {

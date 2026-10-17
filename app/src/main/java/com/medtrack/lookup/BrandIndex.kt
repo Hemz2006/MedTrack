@@ -40,14 +40,14 @@ class BrandIndex(private val context: Context) {
     }
 
     /**
-     * The likely medicines in a prescription's [text]: for each word that could be a name, the brands it is closest
+     * The likely medicines in [text] read from a photo (a pack or strip): for each word that could be a name, the brands it is closest
      * to, allowing a few misread letters. [saved] are the user's own medications, matched too (and first): they
      * cover brands missing from the list. Words that match nothing are left out.
      */
-    suspend fun matchPrescription(text: String, saved: List<Brand> = emptyList()): List<PrescriptionMatch> = withContext(Dispatchers.IO) {
+    suspend fun matchText(text: String, saved: List<Brand> = emptyList()): List<TextMatch> = withContext(Dispatchers.IO) {
         val database = open()
         val own = saved.map { Candidate(it, discontinued = false) }
-        namesInPrescription(text).mapNotNull { read ->
+        possibleNames(text).mapNotNull { read ->
             val listed = database?.let { db ->
                 searchPrefixes(read.word).flatMap { prefix ->
                     db.rawQuery(
@@ -62,7 +62,7 @@ class BrandIndex(private val context: Context) {
                     }
                 }
             }.orEmpty()
-            closestBrands(read, own + listed).takeIf { it.isNotEmpty() }?.let { PrescriptionMatch(read.word, it) }
+            closestBrands(read, own + listed).takeIf { it.isNotEmpty() }?.let { TextMatch(read.word, it) }
         }.distinctBy { match -> match.brands.first().name.lowercase() }
     }
 

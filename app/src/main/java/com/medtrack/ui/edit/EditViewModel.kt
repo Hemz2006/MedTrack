@@ -1,5 +1,8 @@
 package com.medtrack.ui.edit
 
+import com.medtrack.data.title
+import com.medtrack.lookup.readTextIn
+import android.util.Log
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,6 +35,12 @@ data class EditState(
     val loaded: Boolean = false,
     /** Photos just added, waiting to be cropped (or kept whole) before they join the medication. */
     val pendingCrop: List<String> = emptyList(),
+    /** The photos waiting to be cropped came from "Scan medicine": read the first once it's cropped. */
+    val scanPending: Boolean = false,
+    /** Reading a scanned pack's name. */
+    val scanning: Boolean = false,
+    /** What the last scan found, shown above the name fields. */
+    val scanNote: String? = null,
     val med: MedicationEntity,
     val suggestions: List<Suggestion> = emptyList(),
     val brandSuggestions: List<Brand> = emptyList(),
@@ -41,8 +50,7 @@ data class EditState(
     val saved: Boolean = false,
 )
 
-/** [prefill]: a brand to start a new medication from (chosen from a scanned prescription). */
-class EditViewModel(private val c: AppContainer, private val id: Long, prefill: Brand? = null) : ViewModel() {
+class EditViewModel(private val c: AppContainer, private val id: Long) : ViewModel() {
     private val _state = MutableStateFlow(EditState(med = newMedication(LocalDate.now(), Instant.now())))
     val state = _state.asStateFlow()
 
@@ -55,7 +63,6 @@ class EditViewModel(private val c: AppContainer, private val id: Long, prefill: 
     init {
         if (id == 0L) {
             _state.update { it.copy(loaded = true) }
-            prefill?.let(::pickBrand)
         } else {
             viewModelScope.launch {
                 val existing = c.db.medicationDao().get(id)
@@ -105,6 +112,7 @@ class EditViewModel(private val c: AppContainer, private val id: Long, prefill: 
 
     /** Fills in the composition printed on that brand's pack, then looks up each ingredient. */
     fun pickBrand(brand: Brand) {
+        _state.update { it.copy(scanNote = null) }
         brandJob?.cancel()
         suggestJob?.cancel()
         cancelLookup()
@@ -160,7 +168,8 @@ class EditViewModel(private val c: AppContainer, private val id: Long, prefill: 
         job.start()
     }
 
-    fun addPhotos(uris: List<Uri>) {
+    /** Adds photos to crop; [scan] = from "Scan medicine", so the pack's name is read once the first is cropped. */
+    fun addPhotos(uris: List<Uri>, scan: Boolean = false) {
         viewModelScope.launch {
             var failed = 0
             val imported = mutableListOf<String>()
@@ -175,15 +184,53 @@ class EditViewModel(private val c: AppContainer, private val id: Long, prefill: 
                 }
                 imported += path
             }
-            if (imported.isNotEmpty()) _state.update { it.copy(pendingCrop = it.pendingCrop + imported) }
+            if (imported.isNotEmpty()) _state.update { it.copy(pendingCrop = it.pendingCrop + imported, scanPending = it.scanPending || scan) }
             if (failed > 0) _state.update { it.copy(error = if (failed == 1) "Couldn't load one photo" else "Couldn't load $failed photos") }
         }
     }
 
-    /** The crop step is done: add the photos as cropped (or whole). */
+    /** The crop step is done: add the photos as cropped (or whole), and read the name off a scanned pack. */
     fun finishCrop(paths: List<String>) {
-        _state.update { it.copy(pendingCrop = emptyList(), med = it.med.copy(photos = it.med.photos + paths), error = null) }
+        val scan = _state.value.scanPending
+        _state.update { it.copy(pendingCrop = emptyList(), scanPending = false, med = it.med.copy(photos = it.med.photos + paths), error = null) }
+        if (scan) paths.firstOrNull()?.let(::scanPack)
     }
+
+    /**
+     * Reads the photo of a pack and offers the brands it matches (the brand list and the user's own medications)
+     * as suggestions under the name, to tap the right one. Nothing is filled in until one is tapped.
+     */
+    private fun scanPack(path: String) {
+        brandJob?.cancel()
+        _state.update { it.copy(scanning = true, scanNote = null, brandSuggestions = emptyList()) }
+        viewModelScope.launch {
+            val found = try {
+                val text = readTextIn(path)
+                val own = c.db.medicationDao().all()
+                    .filter { it.id != id }
+                    .map { Brand(it.title, it.ingredients.formatComposition().ifBlank { it.genericName }, null, saved = true) }
+                c.brands.matchText(text, own).flatMap { it.brands }.distinctBy { it.name.lowercase() to it.composition.lowercase() }.take(6)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("MedTrack", "Reading the pack failed", e)
+                null
+            }
+            _state.update {
+                it.copy(
+                    scanning = false,
+                    brandSuggestions = found.orEmpty(),
+                    scanNote = when {
+                        found == null -> "Couldn't read that photo. Type the name instead, or scan again closer and well lit."
+                        found.isEmpty() -> "Couldn't find the medicine's name in the photo. Type it instead, or scan again with the name in view."
+                        else -> "Found on the pack. Tap the right one below the name."
+                    },
+                )
+            }
+        }
+    }
+
+    fun clearScanNote() = _state.update { it.copy(scanNote = null) }
 
     fun removePhoto(path: String) {
         if (path !in savedPhotos) c.photos.delete(path)

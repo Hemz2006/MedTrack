@@ -1,5 +1,11 @@
 package com.medtrack.ui.edit
 
+import com.medtrack.ui.common.PhotoSources
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.layout.Box
 import com.medtrack.ui.common.PhotoCropFlow
 import com.medtrack.ui.common.rememberPhotoSources
 import com.medtrack.ui.common.MedAlert
@@ -55,12 +61,13 @@ import com.medtrack.ui.theme.medColors
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EditMedicationScreen(c: AppContainer, id: Long, prefill: Brand?, onDone: () -> Unit) {
-    val vm = containerViewModel { EditViewModel(c, id, prefill) }
+fun EditMedicationScreen(c: AppContainer, id: Long, onDone: () -> Unit) {
+    val vm = containerViewModel { EditViewModel(c, id) }
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.saved) { if (state.saved) onDone() }
 
     val photoSources = rememberPhotoSources(vm::addPhotos)
+    val scanSources = rememberPhotoSources { vm.addPhotos(it, scan = true) }
 
     val med = state.med
     ScreenScaffold(
@@ -75,6 +82,9 @@ fun EditMedicationScreen(c: AppContainer, id: Long, prefill: Brand?, onDone: () 
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             state.error?.let { MedAlert(AlertTone.DANGER, it, onDismiss = vm::clearError) }
+
+            ScanMedicine(scanSources, scanning = state.scanning)
+            state.scanNote?.let { MedAlert(if (state.brandSuggestions.isEmpty()) AlertTone.WARNING else AlertTone.INFO, it, onDismiss = vm::clearScanNote) }
 
             Section("Medication") {
                 OutlinedTextField(
@@ -144,6 +154,37 @@ fun EditMedicationScreen(c: AppContainer, id: Long, prefill: Brand?, onDone: () 
         }
     }
     if (state.pendingCrop.isNotEmpty()) PhotoCropFlow(state.pendingCrop, c.photos, vm::finishCrop)
+}
+
+/**
+ * "Scan medicine": photograph (or choose a photo of) the box or strip; the photo is added to the medication and the
+ * name read from it is offered as suggestions.
+ */
+@Composable
+private fun ScanMedicine(sources: PhotoSources, scanning: Boolean) {
+    var open by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                Button(onClick = { open = true }, enabled = !scanning, modifier = Modifier.heightIn(min = 48.dp)) { Text("Scan medicine") }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    DropdownMenuItem(text = { Text("Take a photo") }, onClick = { open = false; sources.takePhoto() })
+                    DropdownMenuItem(text = { Text("Choose from photos") }, onClick = { open = false; sources.choosePhotos() })
+                }
+            }
+            if (scanning) {
+                Spacer(Modifier.width(12.dp))
+                CircularProgressIndicator(Modifier.size(24.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Reading the pack…", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Text(
+            "Photograph the name on the box or strip. It's added as the medication's photo, and its name is suggested below.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.medColors.inkMuted,
+        )
+    }
 }
 
 /** A titled group of fields; sections sit 24dp apart. */

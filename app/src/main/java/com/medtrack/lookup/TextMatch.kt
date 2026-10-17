@@ -1,12 +1,12 @@
 package com.medtrack.lookup
 
-/** A word on a prescription that might be a medicine, with the number written just after it (often the strength). */
+/** A word on a medicine pack (or other photo) that might be a medicine name, with the number just after it (often the strength). */
 data class ReadName(val word: String, val strength: String?)
 
-/** What one word on the prescription most likely is: the closest brands, best first. */
-data class PrescriptionMatch(val read: String, val brands: List<Brand>)
+/** What one word in the photo most likely is: the closest brands, best first. */
+data class TextMatch(val read: String, val brands: List<Brand>)
 
-/** Words on prescriptions that are never medicine names: dosage forms, timing, and the form's own headings. */
+/** Words that are never medicine names: dosage forms, timing, and the headings printed on packs and forms. */
 private val NOT_MEDICINES = setOf(
     "tab", "tabs", "tablet", "tablets", "cap", "caps", "capsule", "capsules", "syp", "syrup", "susp", "suspension",
     "inj", "injection", "oint", "ointment", "drop", "drops", "cream", "gel", "lotion", "powder", "sachet", "inhaler",
@@ -20,10 +20,10 @@ private val NOT_MEDICINES = setOf(
 )
 
 /**
- * The words on a prescription worth looking up: three letters or more, not a dosage form or timing word, with the
+ * The words in a photo's text worth looking up: three letters or more, not a dosage form or timing word, with the
  * number after each kept as a strength hint ("Pan 40" → "Pan", "40").
  */
-fun namesInPrescription(text: String): List<ReadName> {
+fun possibleNames(text: String): List<ReadName> {
     val found = mutableListOf<ReadName>()
     for (line in text.lines()) {
         val tokens = line.split(Regex("[\\s,;:()\\[\\]]+")).map { it.trim('.', '-', '/', '*', '\'', '"') }.filter { it.isNotEmpty() }
