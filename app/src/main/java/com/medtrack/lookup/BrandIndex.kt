@@ -50,23 +50,25 @@ class BrandIndex(private val context: Context) {
         val database = open()
         val own = saved.map { Candidate(it, discontinued = false) }
         val byBrand = possibleNames(text).mapNotNull { read ->
-            val listed = database?.let { db ->
-                searchPrefixes(read.word).flatMap { prefix ->
-                    db.rawQuery(
-                        "SELECT b.name, c.text, m.name, b.discontinued FROM brands b " +
-                            "JOIN compositions c ON c.id = b.composition LEFT JOIN makers m ON m.id = b.maker " +
-                            "WHERE b.key >= ? AND b.key < ? LIMIT 3000",
-                        arrayOf(prefix, "$prefix{"),
-                    ).use { c ->
-                        buildList {
-                            while (c.moveToNext()) add(Candidate(Brand(c.getString(0), c.getString(1), c.getString(2)), c.getInt(3) == 1))
-                        }
-                    }
-                }
-            }.orEmpty()
-            closestBrands(read, own + listed).takeIf { it.isNotEmpty() }?.let { TextMatch(read.word, it) }
+            fun near(prefixes: List<String>) = database?.let { db -> prefixes.flatMap { brandsFrom(db, it) } }.orEmpty()
+            // The word as read first; its lookalike spellings only when that finds nothing (far fewer searches).
+            val prefixes = searchPrefixes(read.word)
+            (closestBrands(read, own + near(prefixes.take(1))).ifEmpty { closestBrands(read, near(prefixes.drop(1))) })
+                .takeIf { it.isNotEmpty() }?.let { TextMatch(read.word, it) }
         }.distinctBy { match -> match.brands.first().name.lowercase() }
         combineMatches(byBrand, matchGeneric(database, text, own))
+    }
+
+    /** Brands whose search key starts with [prefix] (at most 3000). */
+    private fun brandsFrom(db: SQLiteDatabase, prefix: String): List<Candidate> = db.rawQuery(
+        "SELECT b.name, c.text, m.name, b.discontinued FROM brands b " +
+            "JOIN compositions c ON c.id = b.composition LEFT JOIN makers m ON m.id = b.maker " +
+            "WHERE b.key >= ? AND b.key < ? LIMIT 3000",
+        arrayOf(prefix, "$prefix{"),
+    ).use { c ->
+        buildList {
+            while (c.moveToNext()) add(Candidate(Brand(c.getString(0), c.getString(1), c.getString(2)), c.getInt(3) == 1))
+        }
     }
 
     /** Brands containing a generic name printed in [text] (words of 6 letters or more), the printed strength first. */
