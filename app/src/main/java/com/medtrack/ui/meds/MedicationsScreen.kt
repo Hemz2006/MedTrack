@@ -1,29 +1,8 @@
 package com.medtrack.ui.meds
 
-import com.medtrack.R
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.draw.clip
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.Image
-import com.medtrack.data.orderSearches
-import androidx.compose.ui.semantics.heading
-import androidx.compose.foundation.layout.widthIn
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.mutableStateOf
+import com.medtrack.ui.common.OrderButton
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import com.medtrack.data.Pharmacy
 import com.medtrack.ui.common.islandBottom
 import androidx.compose.ui.Alignment
 import com.medtrack.ui.common.FormIcon
@@ -131,56 +110,3 @@ private fun MedicationRow(med: MedicationEntity, onClick: () -> Unit) {
         OrderButton(med)
     }
 }
-
-/**
- * "Order", then a choice of pharmacy for each name the medication goes by (the name on the pack, then the generic
- * name): opens that pharmacy's search results in its app or the browser.
- */
-@Composable
-private fun OrderButton(med: MedicationEntity) {
-    val context = LocalContext.current
-    val searches = remember(med) { med.orderSearches() }
-    if (searches.isEmpty()) return
-    var open by remember { mutableStateOf(false) }
-    Box {
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Order ${med.title}" }) {
-            Text("Order")
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            searches.forEachIndexed { index, search ->
-                if (index > 0) HorizontalDivider(color = MaterialTheme.medColors.foil)
-                Text(
-                    "${search.label}: ${search.term}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.medColors.inkMuted,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(max = 280.dp).semantics { heading() },
-                )
-                Pharmacy.entries.forEach { pharmacy ->
-                    DropdownMenuItem(
-                        text = { Text(pharmacy.label) },
-                        leadingIcon = {
-                            Image(painterResource(pharmacy.logo), contentDescription = null, modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)))
-                        },
-                        modifier = Modifier.semantics { contentDescription = "${pharmacy.label}, search ${search.term}" },
-                        onClick = {
-                            open = false
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pharmacy.searchUrl(search.term))))
-                            } catch (e: ActivityNotFoundException) {
-                                Toast.makeText(context, "No browser to open ${pharmacy.label}", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** The pharmacy's own app icon, shown beside its name. */
-private val Pharmacy.logo: Int
-    get() = when (this) {
-        Pharmacy.TATA_1MG -> R.drawable.logo_tata1mg
-        Pharmacy.PHARMEASY -> R.drawable.logo_pharmeasy
-        Pharmacy.NETMEDS -> R.drawable.logo_netmeds
-    }

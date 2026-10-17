@@ -27,6 +27,13 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_HEALTH_WARNING_HIDDEN, false)
         set(value) = prefs.edit().putBoolean(KEY_HEALTH_WARNING_HIDDEN, value).apply()
 
+    /** Restock prompts already answered, as restockKey()s, so each course end asks only once. */
+    val restockAsked: Set<String> get() = prefs.getStringSet(KEY_RESTOCK_ASKED, null).orEmpty().toSet()
+
+    fun markRestockAsked(key: String) {
+        prefs.edit().putStringSet(KEY_RESTOCK_ASKED, restockAsked + key).apply()
+    }
+
     var uiSettings: UiSettings
         get() = UiSettings(
             theme = ThemeMode.entries.firstOrNull { it.name == prefs.getString(KEY_THEME, null) } ?: ThemeMode.SYSTEM,
@@ -53,5 +60,6 @@ class AppPrefs(context: Context) {
         const val KEY_LAST_SCAN = "lastScanAt"
         const val KEY_SETUP_DONE = "setupDone"
         const val KEY_TODAY_VIEW = "todayView"
+        const val KEY_RESTOCK_ASKED = "restockAsked"
     }
 }

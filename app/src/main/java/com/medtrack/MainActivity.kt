@@ -1,5 +1,6 @@
 package com.medtrack
 
+import com.medtrack.ui.common.RestockPrompt
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -54,6 +55,8 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     // The app is composed straight away underneath, so its screens and data are ready when the video ends.
                     MedTrackNav(c, startOnSetup = !c.prefs.setupDone)
+                    // Asked only once the app is showing, never over the opening video.
+                    if (!splash) RestockPrompt(c)
                     if (splash) {
                         VideoSplash(dark = MaterialTheme.medColors.paper.luminance() < 0.5f, ready = ready) { splash = false }
                     }
