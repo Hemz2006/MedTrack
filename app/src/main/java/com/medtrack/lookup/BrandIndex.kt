@@ -42,7 +42,9 @@ class BrandIndex(private val context: Context) {
     /**
      * The likely medicines in [text] read from a photo (a pack or strip): for each word that could be a name, the brands it is closest
      * to, allowing a few misread letters. [saved] are the user's own medications, matched too (and first): they
-     * cover brands missing from the list. Words that match nothing are left out.
+     * cover brands missing from the list. Words that match nothing are left out. When no word matches a brand
+     * (a stylised logo can be unreadable), the generic name printed on the pack is used instead: brands with that
+     * ingredient, the printed strength first.
      */
     suspend fun matchText(text: String, saved: List<Brand> = emptyList()): List<TextMatch> = withContext(Dispatchers.IO) {
         val database = open()
@@ -63,6 +65,26 @@ class BrandIndex(private val context: Context) {
                 }
             }.orEmpty()
             closestBrands(read, own + listed).takeIf { it.isNotEmpty() }?.let { TextMatch(read.word, it) }
+        }.distinctBy { match -> match.brands.first().name.lowercase() }
+            .ifEmpty { matchGeneric(database, text, own) }
+    }
+
+    /** Brands containing a generic name printed in [text] (words of 6 letters or more), the printed strength first. */
+    private fun matchGeneric(database: SQLiteDatabase?, text: String, own: List<Candidate>): List<TextMatch> {
+        val strengths = strengthsIn(text)
+        val form = formIn(text)
+        return possibleNames(text).filter { it.word.length >= 6 }.mapNotNull { read ->
+            val listed = database?.rawQuery(
+                "SELECT b.name, c.text, m.name, b.discontinued FROM compositions c " +
+                    "JOIN brands b ON b.composition = c.id LEFT JOIN makers m ON m.id = b.maker " +
+                    "WHERE c.text LIKE ? LIMIT 3000",
+                arrayOf("%${read.word}%"),
+            )?.use { c ->
+                buildList {
+                    while (c.moveToNext()) add(Candidate(Brand(c.getString(0), c.getString(1), c.getString(2)), c.getInt(3) == 1))
+                }
+            }.orEmpty()
+            brandsWithIngredient(read.word, strengths, form, own + listed).takeIf { it.isNotEmpty() }?.let { TextMatch(read.word, it) }
         }.distinctBy { match -> match.brands.first().name.lowercase() }
     }
 

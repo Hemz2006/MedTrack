@@ -26,17 +26,56 @@ private val NOT_MEDICINES = setOf(
 fun possibleNames(text: String): List<ReadName> {
     val found = mutableListOf<ReadName>()
     for (line in text.lines()) {
-        val tokens = line.split(Regex("[\\s,;:()\\[\\]]+")).map { it.trim('.', '-', '/', '*', '\'', '"') }.filter { it.isNotEmpty() }
+        // Hyphens and slashes split words too: "Posoxil-GR 300" is "Posoxil", "GR", "300".
+        val tokens = line.split(Regex("[\\s,;:()\\[\\]\\-/®™]+")).map { it.trim('.', '*', '\'', '"') }.filter { it.isNotEmpty() }
         tokens.forEachIndexed { i, token ->
             val letters = token.filter { it.isLetter() }
             if (letters.length < 3 || letters.length != token.length) return@forEachIndexed
             if (letters.lowercase() in NOT_MEDICINES) return@forEachIndexed
-            val strength = tokens.getOrNull(i + 1)?.takeWhile { it.isDigit() || it == '.' }?.takeIf { it.any(Char::isDigit) }
+            // The strength is the number just after, or after a short code such as "GR" or "SR" ("Posoxil-GR 300").
+            fun number(t: String?) = t?.takeWhile { it.isDigit() || it == '.' }?.takeIf { it.any(Char::isDigit) }
+            val next = tokens.getOrNull(i + 1)
+            val isCode = next != null && next.length <= 3 && next.all { it.isLetter() } && next.lowercase() !in NOT_MEDICINES
+            val strength = number(next) ?: if (isCode) number(tokens.getOrNull(i + 2)) else null
             found += ReadName(letters, strength)
         }
     }
     return found.distinctBy { it.word.lowercase() to it.strength }
 }
+
+/** The strengths printed in [text], as written in compositions: "300 mg" and "300mg" both give "300mg". */
+fun strengthsIn(text: String): Set<String> =
+    Regex("(\\d+(?:\\.\\d+)?)\\s*(mg|mcg|g|ml|iu)\\b", RegexOption.IGNORE_CASE).findAll(text)
+        .map { it.groupValues[1] + it.groupValues[2].lowercase() }.toSet()
+
+/** Dosage forms as brand names spell them, in the order to check. */
+private val FORMS = listOf("tablet", "capsule", "syrup", "suspension", "injection", "drops", "cream", "gel", "ointment", "inhaler", "rotacap")
+
+/** The dosage form printed in [text] ("Tablets" → "tablet"), or null when none is. */
+fun formIn(text: String): String? = FORMS.firstOrNull { text.contains(it, ignoreCase = true) }
+
+/**
+ * Brands whose composition names [generic] (a generic name printed on the pack, e.g. "Posaconazole"), best first:
+ * the user's own medications, then the pack's [form] (tablets, not injections), then a strength printed on the pack
+ * ([strengths]), then single-ingredient medicines, brands still on sale, and shorter names.
+ */
+internal fun brandsWithIngredient(generic: String, strengths: Set<String>, form: String?, candidates: List<Candidate>, limit: Int = 3): List<Brand> =
+    candidates
+        .filter { it.brand.composition.contains(generic, ignoreCase = true) }
+        .sortedWith(
+            compareBy<Candidate>(
+                { !it.brand.saved },
+                { form != null && !it.brand.name.contains(form, ignoreCase = true) },
+                { c -> strengths.none { c.brand.composition.replace(" ", "").contains(it, ignoreCase = true) } },
+                { it.brand.composition.count { ch -> ch == '+' } },
+                { it.discontinued },
+                { it.brand.name.length },
+                { it.brand.name },
+            ),
+        )
+        .map { it.brand }
+        .distinctBy { it.name.lowercase() to it.composition.lowercase() }
+        .take(limit)
 
 /** Letters that handwriting recognition often mistakes for one another. */
 private val LOOKALIKES = listOf("adopq", "hmn", "ijl", "ce", "uv")

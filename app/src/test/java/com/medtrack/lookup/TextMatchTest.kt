@@ -62,4 +62,31 @@ class TextMatchTest {
         val mine = Candidate(Brand("Mecmaxol", "Methylcobalamin", null, saved = true), false)
         assertEquals(listOf("Mecmaxol"), closestBrands(ReadName("hecmool", null), listOf(mine)).map { it.name })
     }
+
+    @Test fun hyphenatedBrandNamesAreRead() {
+        // The Posoxil-GR pack: brand with a hyphen, strength after the "GR".
+        val names = possibleNames("Posaconazole Gastro-\nResistant Tablets 300 mg\nPosoxil-GR 300")
+        assertEquals(true, ReadName("Posoxil", "300") in names)
+        assertEquals(true, names.any { it.word == "Posaconazole" })
+    }
+
+    @Test fun strengthsAreReadAsCompositionsWriteThem() {
+        assertEquals(setOf("300mg", "5ml"), strengthsIn("Tablets 300 mg ... each 5 ML"))
+    }
+
+    @Test fun genericNameFindsBrandsWithThatIngredientAndStrength() {
+        val mine = Candidate(Brand("Posoxil GR 300mg Tablet", "Posaconazole (300mg)", null, saved = true), false)
+        val candidates = listOf(
+            brand("Posoxil GR 100mg Tablet", "Posaconazole (100mg)"),
+            brand("Noxafil 300 Tablet", "Posaconazole (300mg)"),
+            brand("Posahit 300mg Injection", "Posaconazole (300mg)"),
+            brand("Paracip 500 Tablet", "Paracetamol (500mg)"),
+            mine,
+        )
+        // Own medication first; then tablets (the printed form) before injections, the printed strength first.
+        assertEquals(
+            listOf("Posoxil GR 300mg Tablet", "Noxafil 300 Tablet", "Posoxil GR 100mg Tablet"),
+            brandsWithIngredient("Posaconazole", setOf("300mg"), formIn("Gastro-Resistant Tablets"), candidates).map { it.name },
+        )
+    }
 }
