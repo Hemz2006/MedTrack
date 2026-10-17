@@ -1,5 +1,12 @@
 package com.medtrack.ui.meds
 
+import com.medtrack.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
 import com.medtrack.data.orderSearches
 import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.widthIn
@@ -136,7 +143,7 @@ private fun OrderButton(med: MedicationEntity) {
     if (searches.isEmpty()) return
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Order ${med.title}" }) {
+        OutlinedButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Order ${med.title}" }) {
             Text("Order")
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -151,6 +158,9 @@ private fun OrderButton(med: MedicationEntity) {
                 Pharmacy.entries.forEach { pharmacy ->
                     DropdownMenuItem(
                         text = { Text(pharmacy.label) },
+                        leadingIcon = {
+                            Image(painterResource(pharmacy.logo), contentDescription = null, modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)))
+                        },
                         modifier = Modifier.semantics { contentDescription = "${pharmacy.label}, search ${search.term}" },
                         onClick = {
                             open = false
@@ -166,3 +176,11 @@ private fun OrderButton(med: MedicationEntity) {
         }
     }
 }
+
+/** The pharmacy's own app icon, shown beside its name. */
+private val Pharmacy.logo: Int
+    get() = when (this) {
+        Pharmacy.TATA_1MG -> R.drawable.logo_tata1mg
+        Pharmacy.PHARMEASY -> R.drawable.logo_pharmeasy
+        Pharmacy.NETMEDS -> R.drawable.logo_netmeds
+    }
