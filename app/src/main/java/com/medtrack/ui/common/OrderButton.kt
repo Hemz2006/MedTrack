@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,7 +16,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,8 +49,14 @@ fun OrderButton(med: MedicationEntity, modifier: Modifier = Modifier, onOrdered:
     if (searches.isEmpty()) return
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Order ${med.title}" }) {
-            Text("Order")
+        // Compact and filled in the accent colour so it stands out on the row; the touch area stays 48dp.
+        Button(
+            onClick = { open = true },
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+            modifier = Modifier.heightIn(min = 34.dp).semantics { contentDescription = "Order ${med.title}" },
+        ) {
+            Text("Order", style = MaterialTheme.typography.labelLarge)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             searches.forEachIndexed { index, search ->
