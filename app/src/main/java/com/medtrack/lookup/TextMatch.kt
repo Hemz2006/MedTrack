@@ -17,6 +17,11 @@ private val NOT_MEDICINES = setOf(
     "mobile", "sign", "signature", "advice", "advised", "review", "follow", "diagnosis", "weight", "blood", "pressure",
     "sugar", "test", "tests", "report", "regd", "mbbs", "consultant", "physician", "continue", "stop", "apply",
     "times", "each", "every", "when", "needed", "required", "pain", "fever", "cough", "cold",
+    // Printed on packs: release types, makers' words and storage notes.
+    "gastro", "resistant", "release", "prolonged", "extended", "sustained", "modified", "controlled", "film", "coated",
+    "chewable", "dispersible", "oral", "healthcare", "pharma", "pharmaceuticals", "laboratories", "labs", "limited",
+    "ltd", "store", "below", "keep", "reach", "children", "protect", "light", "moisture", "manufactured", "marketed",
+    "only", "schedule", "warning", "contains", "each", "strip", "batch", "expiry", "price", "inclusive", "taxes",
 )
 
 /**
@@ -76,6 +81,21 @@ internal fun brandsWithIngredient(generic: String, strengths: Set<String>, form:
         .map { it.brand }
         .distinctBy { it.name.lowercase() to it.composition.lowercase() }
         .take(limit)
+
+/**
+ * Joins brand-name matches with matches from generic names printed on the pack. Packs nearly always print the
+ * generic name, so when one was found ([generic] isn't empty), brand matches that don't contain it are dropped: a
+ * word like "Gastro" matching an unrelated brand is a false lead.
+ */
+internal fun combineMatches(byBrand: List<TextMatch>, generic: List<TextMatch>): List<TextMatch> {
+    if (generic.isEmpty()) return byBrand
+    val printed = generic.map { it.read }
+    val agreeing = byBrand.mapNotNull { match ->
+        val kept = match.brands.filter { brand -> printed.any { brand.composition.contains(it, ignoreCase = true) } }
+        kept.takeIf { it.isNotEmpty() }?.let { match.copy(brands = it) }
+    }
+    return (agreeing + generic).distinctBy { it.brands.first().name.lowercase() }
+}
 
 /** Letters that handwriting recognition often mistakes for one another. */
 private val LOOKALIKES = listOf("adopq", "hmn", "ijl", "ce", "uv")

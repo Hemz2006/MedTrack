@@ -89,4 +89,13 @@ class TextMatchTest {
             brandsWithIngredient("Posaconazole", setOf("300mg"), formIn("Gastro-Resistant Tablets"), candidates).map { it.name },
         )
     }
+
+    @Test fun aPrintedGenericNameRulesOutUnrelatedBrandMatches() {
+        // The Posoxil-GR pack: "Gastro" matched the brand Gastro (Pantoprazole), but the pack says Posaconazole.
+        val gastro = TextMatch("Gastro", listOf(Brand("Gastro 40mg Tablet", "Pantoprazole (40mg)", null)))
+        val posoxil = TextMatch("Posoxil", listOf(Brand("Posoxil GR 100mg Tablet", "Posaconazole (100mg)", null)))
+        val generic = TextMatch("Posaconazole", listOf(Brand("Posoxil GR 300mg Tablet", "Posaconazole (300mg)", null, saved = true)))
+        assertEquals(listOf(posoxil, generic), combineMatches(listOf(gastro, posoxil), listOf(generic)))
+        assertEquals(listOf(gastro), combineMatches(listOf(gastro), emptyList()))
+    }
 }
